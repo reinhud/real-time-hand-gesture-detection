@@ -1,0 +1,87 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/docker-existing-dockerfile
+{
+	"name": "Real Time Hand Gesture Detection",
+	"build": {
+		// Sets the run context to one level up instead of the .devcontainer folder.
+		"context": "..",
+		// Update the 'dockerFile' property if you aren't using the standard 'Dockerfile' filename.
+		"dockerfile": "../Dockerfile"
+	},
+
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	// "features": {},
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+
+	// Uncomment the next line to run commands after the container is created.
+	// "postCreateCommand": "cat /etc/os-release",
+
+	// Configure tool-specific properties.
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				// Code completion and AI
+				"GitHub.copilot",
+				"GitHub.copilot-chat",
+				// Code formatting and linting
+				"ms-python.python",
+				"ms-python.flake8",
+				"ms-python.isort",
+				// Project management
+				"Gruntfuggly.todo-tree",
+				"eamodio.gitlens",
+				// Jupyter notebook
+				"ms-toolsai.jupyter",
+				// Intent rainbow
+				"oderwat.indent-rainbow"
+
+			],
+			"settings": {
+				// Code formatting and linting
+				"autoDocstring.docstringFormat": "google",
+				"python.testing.pytestEnabled": true,
+				"editor.formatOnSave": true,
+				"[python]": {
+					"editor.defaultFormatter": "ms-python.black-formatter",
+					"editor.codeActionsOnSave": {
+						"source.organizeImports": true,
+						"source.fixAll": true,
+						"source.formatOnSave": true
+
+					},
+					"files.trimTrailingWhitespace": true
+				},
+				"flake8.args": [
+					// Default 88, personal preference here
+					"--max-line-length=110",
+					// Ignore unused imports needed to initialize postgres
+					"--per-file-ignores=initialize.py:F401"
+				],
+				"isort.args": [
+					"--profile",
+					"black"
+				],
+				// Intent rainbow
+				"indentRainbow.indicatorStyle": "light",
+				"indentRainbow.lightIndicatorStyleLineWidth": 1,
+				"indentRainbow.colors": [
+					"rgba(255,255,64,0.3)",
+					"rgba(127,255,127,0.3)",
+					"rgba(255,127,255,0.3)",
+					"rgba(79,236,236,0.3)"
+				],
+				// The indent color if the number of spaces is not a multiple of "tabSize".
+				"indentRainbow.errorColor": "rgba(128,32,32,0.6)"
+			},
+			"files_exlude": {
+				// hide pycache folders.
+				"**/__pycache__": true
+			}
+		}
+	}
+
+	// Uncomment to connect as an existing user other than the container default. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "devcontainer"
+}
