@@ -14,21 +14,33 @@ on:
 
 jobs:
   linting:
-    name: Lint & Test
+    name: Lint
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build Container
-        run: docker build -t ci_image --target development -f Dockerfile .
-
-      - name: 🔎Linting
-        run: docker run --rm ci_image poetry run flake8 -v.
-
-      - name: 💡Testing
-        run: docker run --rm -v "${{ github.workspace }}:/."" ci_image poetry run pytest
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.10.2
       
+      - name: Install poetry
+        uses: abatilo/actions-poetry@v2
+        with:
+          poetry-version: ${{ matrix.poetry-version }}
+
+      - uses: actions/cache@v3
+        name: Define a cache for the virtual environment based on the dependencies lock file
+        with:
+          path: ./.venv
+          key: venv-${{ hashFiles('poetry.lock') }}
+
+      - name: 🖥️ Install development dependencies with linter
+        run: poetry install --no-root --no-interaction --only dev
+
+      - name: 🔎 Linting
+        run: poetry run flake8 -v.
 
 

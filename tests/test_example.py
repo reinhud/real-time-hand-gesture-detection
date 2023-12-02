@@ -1,5 +1,4 @@
 """Sanity check if pytest works."""
-import pytest
 
 
 def test_example():
