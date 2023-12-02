@@ -2,7 +2,7 @@
 
 
 name: CI
-run-name: Contributer "${{ github.actor }}" with ${{ github.event_name }} on branch ${{ github.ref }}.🚀
+run-name: Contributer "${{ github.actor }}" is trying to ${{ github.event_name }} branch ${{ github.ref }}.🚀
 
 
 on:
@@ -22,15 +22,23 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v2
         with:
-          python-version: 3.10
-          cache: 'poetry'
+          python-version: "3.10.2"
       
       - name: Install poetry
-        uses: abatilo/actions-poetry@v2
+        run: |
+          python -m pip install poetry
+      
+      - name: Configure poetry
+        run: |
+          python -m poetry config virtualenvs.in-project true
+
+      - name: Cache the virtualenv
+        uses: actions/cache@v2
         with:
-          poetry-version: ${{ matrix.poetry-version }}
+          path: ./.venv
+          key: ${{ runner.os }}-venv-${{ hashFiles('**/poetry.lock') }}
 
       - name: 🖥️ Install development dependencies with linter
         run: poetry install --no-root --no-interaction --only dev

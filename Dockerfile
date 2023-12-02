@@ -79,7 +79,7 @@ RUN echo "Builder image build successfully"
 # ========================================================================================================= #
 # DEVELOPMENT
 # Image used during development / testing.
-# The source code for thist stage is mounted from the host machine.
+# Devcontainer automatically mounts local root of the project with .git into container.
 # ========================================================================================================= #
 FROM builder as development
 
@@ -89,16 +89,12 @@ COPY --from=builder ${POETRY_VIRTUALENVS_PATH} ${POETRY_VIRTUALENVS_PATH}
 # Quick install of additional dev deps as runtime deps come cached from builder already.
 RUN poetry install --no-root
 
-# TODO: mount this from host machine.
-COPY . .
-
 RUN echo "Development image build successfully"
 
 
 # ========================================================================================================= #
-# Production
+# PRODUCTION
 # ========================================================================================================= #
-# TODO: Add production image
 FROM builder as production
 
 # copy virtual env width deps from builder
@@ -106,6 +102,5 @@ COPY --from=builder ${POETRY_VIRTUALENVS_PATH} ${POETRY_VIRTUALENVS_PATH}
 
 # copy project
 COPY . .
-
 
 RUN echo "Production image build successfully"
