@@ -5,18 +5,19 @@
 	"build": {
 		// Sets the run context to one level up instead of the .devcontainer folder.
 		"context": "..",
-		// Update the 'dockerFile' property if you aren't using the standard 'Dockerfile' filename.
-		"dockerfile": "../Dockerfile"
+		"dockerfile": "../Dockerfile",
+		// Use development stage.
+		"target": "development"
 	},
-	// Features to add to the dev container. More info: https://containers.dev/features.
-	// "features": {},
-	// Additional container specific runtime settings.
+	// Mount local source code into container.
+	//"mounts": [
+	//	"source=${localWorkspaceFolder},target=/workspaces/real-time-hand-gesture-detection,type=bind,consistency=cached"
+	//],
+	// Activate GPU usage as additional container specific runtime settings.
 	"runArgs": [
 		"--gpus",
 		"all"
 	],
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [],
 	// Run startup script after the container is created.
 	"postCreateCommand": "sh start.sh",
 	// Configure tool-specific properties.
@@ -32,21 +33,23 @@
 				"ms-python.python",
 				"ms-python.flake8",
 				"ms-python.isort",
+				"ms-python.black-formatter",
 				// Project management
 				"Gruntfuggly.todo-tree",
 				"eamodio.gitlens",
 				// Jupyter notebook
 				"ms-toolsai.jupyter",
-				// Intent rainbow
-				"oderwat.indent-rainbow"
+				// Make setup prettier:)
+				"oderwat.indent-rainbow",
+				"vscode-icons-team.vscode-icons"
 			],
 			"settings": {
+				"python.testing.pytestEnabled": true,
 				// Code formatting and linting
 				"autoDocstring.docstringFormat": "google",
-				"python.testing.pytestEnabled": true,
-				"editor.formatOnSave": true,
+				"python.formatting.provider": "black",
+				"editor.formatOnSave": false, // enable per language
 				"[python]": {
-					"editor.defaultFormatter": "ms-python.black-formatter",
 					"editor.codeActionsOnSave": {
 						"source.organizeImports": true,
 						"source.fixAll": true,
@@ -56,15 +59,13 @@
 				},
 				"flake8.args": [
 					// Default 88, personal preference here
-					"--max-line-length=110",
-					// Ignore unused imports needed to initialize postgres
-					"--per-file-ignores=initialize.py:F401"
+					"--max-line-length=110"
 				],
 				"isort.args": [
 					"--profile",
 					"black"
 				],
-				// Intent rainbow
+				// Indent lines with rainbow
 				"indentRainbow.indicatorStyle": "light",
 				"indentRainbow.lightIndicatorStyleLineWidth": 1,
 				"indentRainbow.colors": [

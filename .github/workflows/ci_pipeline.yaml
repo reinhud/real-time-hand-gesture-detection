@@ -1,0 +1,34 @@
+# Github Actions Workflow for CI
+
+
+name: CI
+run-name: Contributer "${{ github.actor }}" with ${{ github.event_name }} on branch ${{ github.ref }}.🚀
+
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+
+jobs:
+  linting:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Container
+        run: docker build -t ci_image --target development -f Dockerfile .
+
+      - name: 🔎Linting
+        run: docker run --rm ci_image poetry run flake8 -v.
+
+      - name: 💡Testing
+        run: docker run --rm -v "${{ github.workspace }}:/."" ci_image poetry run pytest
+      
+
+

@@ -89,6 +89,9 @@ COPY --from=builder ${POETRY_VIRTUALENVS_PATH} ${POETRY_VIRTUALENVS_PATH}
 # Quick install of additional dev deps as runtime deps come cached from builder already.
 RUN poetry install --no-root
 
+# TODO: mount this from host machine.
+COPY . .
+
 RUN echo "Development image build successfully"
 
 
@@ -99,11 +102,10 @@ RUN echo "Development image build successfully"
 FROM builder as production
 
 # copy virtual env width deps from builder
-# main deps
 COPY --from=builder ${POETRY_VIRTUALENVS_PATH} ${POETRY_VIRTUALENVS_PATH}
 
 # copy project
 COPY . .
 
 
-RUN echo "Development image build successfully"
+RUN echo "Production image build successfully"

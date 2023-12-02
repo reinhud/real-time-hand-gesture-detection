@@ -4,6 +4,7 @@ import torch
 def log_pytorch_info() -> None:
     """Print info about PyTorch version and GPU availability."""
     print("########## PyTorch Device Info ##########")
+
     # Check if GPU is available
     if torch.cuda.is_available():
         # Get the number of available GPUs
