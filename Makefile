@@ -1,4 +1,5 @@
-POETRY := $(shell command -v poetry 2> /dev/null)
+# Define commands for common useful tasks.
+
 
 .DEFAULT_GOAL := help
 
@@ -26,7 +27,7 @@ test:
 
 .PHONY: coverage
 coverage: 
-	poetry run pytest ./tests/ -ra --cov-report term-missing --cov-fail-under 100 --cov=src
+	poetry run pytest -ra --cov-report term-missing --cov-fail-under 100 --cov=src -v ./tests/
 
 .PHONY: lint
 lint:

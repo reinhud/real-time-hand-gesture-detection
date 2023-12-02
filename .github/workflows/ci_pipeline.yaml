@@ -12,7 +12,7 @@ on:
 
 jobs:
   linting:
-    name: Lint
+    name: 🔎 Lint
     runs-on: ubuntu-latest
 
     steps:
@@ -38,10 +38,25 @@ jobs:
           path: ./.venv
           key: ${{ runner.os }}-venv-${{ hashFiles('**/poetry.lock') }}
 
-      - name: 🖥️ Install development dependencies with linter
+      - name: Install development dependencies with linter
         run: poetry install --no-root --no-interaction --only dev
 
-      - name: 🔎 Linting
+      - name: Linting
         run: poetry run flake8 src tests
+
+  
+  testing:
+    name: 🧪 Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build development image for testing
+        run: docker build -t test_image --target development -f Dockerfile .
+
+      - name: Run tests
+        run: docker run --rm -v "${{ github.workspace }}:/workspaces/real-time-hand-gesture-detection" test_image make coverage
 
 
