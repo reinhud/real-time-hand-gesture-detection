@@ -4,7 +4,7 @@
 
 # ========================================================================================================= #
 # BASE
-# Sets up all our shared environment variables
+# Sets up all our shared environment variables.
 # ========================================================================================================= #
 # Use official nvidia base image for pytorch https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch
 FROM nvcr.io/nvidia/pytorch:23.10-py3 as base
@@ -14,7 +14,6 @@ ENV PYTHONUNBUFFERED=1 \
     # pip
     PIP_DISABLE_PIP_VERSION_CHECK=on \
     PIP_DEFAULT_TIMEOUT=100 \
-    \
     # Poetry
     # https://python-poetry.org/docs/configuration/#using-environment-variables
     POETRY_VERSION=1.6.1 \
@@ -24,21 +23,22 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_NO_INTERACTION=1 \
     # never create virtual environment automaticly, only use env prepared by us
     POETRY_VIRTUALENVS_CREATE=false \
-    \
-    # this is where our requirements + virtual environment will live
-    VIRTUAL_ENV="/venv" 
+    # set up dependancy cache 
+    POETRY_CACHE_DIR=/root/.cache \
+    # venv to isolate poetry installation.
+    POETRY_VIRTUALENVS_PATH="/venv" 
 
-    # prepend poetry and venv to path
-    ENV PATH="$POETRY_HOME/bin:$VIRTUAL_ENV/bin:$PATH"
+# prepend poetry and venv to path
+ENV PATH="$POETRY_HOME/bin:$POETRY_VIRTUALENVS_PATH/bin:$PATH"
 
-    RUN echo "Base image build successfully"
+RUN echo "Base image build successfully"
 
 
 # ========================================================================================================= #
-# BUILDER-BASE
+# BUILDER
 # Used to build deps + create our virtual environment
 # ========================================================================================================= #
-FROM base as builder-base
+FROM base as builder
 
 # Install dependencies
 RUN apt-get update && \
@@ -55,37 +55,39 @@ RUN apt-get update && \
     # cleanup, remove unecessary packages
     rm -rf /var/lib/apt/lists/*
 
-# prepare virtual env
-RUN python -m venv $VIRTUAL_ENV
+# Create virtual environment
+RUN python3 -m venv $POETRY_VIRTUALENVS_PATH
 
-# install poetry - respects $POETRY_VERSION & $POETRY_HOME
-# The --mount will mount the buildx cache directory to where
-# Poetry and Pip store their cache so that they can re-use it
-RUN --mount=type=cache,target=/root/.cache \
-    curl -sSL https://install.python-poetry.org | python -
+# Upgrade pip and setuptools
+RUN $POETRY_VIRTUALENVS_PATH/bin/pip install -U pip setuptools
+
+# Install poetry - respects $POETRY_VERSION & $POETRY_HOME
+RUN $POETRY_VIRTUALENVS_PATH/bin/pip install poetry
 
 # used to init dependencies
 COPY poetry.lock pyproject.toml ./
 
-# install runtime deps to VIRTUAL_ENV
-RUN --mount=type=cache,target=/root/.cache \
-    poetry install --no-root --only main
+# Install only runtime deps to POETRY_VIRTUALENVS_PATH.
+# The --mount will mount the buildx cache directory to where
+# Poetry and Pip store their cache so that they can re-use it.
+RUN --mount=type=cache,target=$POETRY_CACHE_DIR \
+    $POETRY_VIRTUALENVS_PATH/bin/poetry install --no-root --no-dev
 
-RUN echo "Builder base image build successfully"
+RUN echo "Builder image build successfully"
 
 
 # ========================================================================================================= #
 # DEVELOPMENT
-# Image used during development / testing
+# Image used during development / testing.
+# The source code for thist stage is mounted from the host machine.
 # ========================================================================================================= #
-FROM builder-base as development
+FROM builder as development
 
-# install dev deps to VIRTUAL_ENV
-RUN --mount=type=cache,target=/root/.cache \
-    poetry install --no-root
+# copy virtual env width runtime deps from builder
+COPY --from=builder ${POETRY_VIRTUALENVS_PATH} ${POETRY_VIRTUALENVS_PATH}
 
-# copy in our source code last, as it changes the most
-COPY . .
+# Quick install of additional dev deps as runtime deps come cached from builder already.
+RUN poetry install --no-root
 
 RUN echo "Development image build successfully"
 
@@ -93,3 +95,15 @@ RUN echo "Development image build successfully"
 # ========================================================================================================= #
 # Production
 # ========================================================================================================= #
+# TODO: Add production image
+FROM builder as production
+
+# copy virtual env width deps from builder
+# main deps
+COPY --from=builder ${POETRY_VIRTUALENVS_PATH} ${POETRY_VIRTUALENVS_PATH}
+
+# copy project
+COPY . .
+
+
+RUN echo "Development image build successfully"

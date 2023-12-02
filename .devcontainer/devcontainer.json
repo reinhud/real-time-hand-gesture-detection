@@ -8,20 +8,23 @@
 		// Update the 'dockerFile' property if you aren't using the standard 'Dockerfile' filename.
 		"dockerfile": "../Dockerfile"
 	},
-
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
-
+	// Additional container specific runtime settings.
+	"runArgs": [
+		"--gpus",
+		"all"
+	],
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
-
-	// Uncomment the next line to run commands after the container is created.
-	// "postCreateCommand": "cat /etc/os-release",
-
+	// Run startup script after the container is created.
+	"postCreateCommand": "sh start.sh",
 	// Configure tool-specific properties.
 	"customizations": {
 		"vscode": {
 			"extensions": [
+				// General
+				"ms-azuretools.vscode-docker",
 				// Code completion and AI
 				"GitHub.copilot",
 				"GitHub.copilot-chat",
@@ -36,7 +39,6 @@
 				"ms-toolsai.jupyter",
 				// Intent rainbow
 				"oderwat.indent-rainbow"
-
 			],
 			"settings": {
 				// Code formatting and linting
@@ -49,7 +51,6 @@
 						"source.organizeImports": true,
 						"source.fixAll": true,
 						"source.formatOnSave": true
-
 					},
 					"files.trimTrailingWhitespace": true
 				},
@@ -81,7 +82,4 @@
 			}
 		}
 	}
-
-	// Uncomment to connect as an existing user other than the container default. More info: https://aka.ms/dev-containers-non-root.
-	// "remoteUser": "devcontainer"
 }
