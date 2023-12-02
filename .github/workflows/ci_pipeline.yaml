@@ -42,6 +42,6 @@ jobs:
         run: poetry install --no-root --no-interaction --only dev
 
       - name: 🔎 Linting
-        run: poetry run flake8 -v.
+        run: poetry run flake8 .
 
 
