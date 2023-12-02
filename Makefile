@@ -30,11 +30,11 @@ coverage:
 
 .PHONY: lint
 lint:
-	poetry run flake8 .
+	poetry run flake8 src tests
 
 .PHONY: format
 format:
-	poetry run black .
+	poetry run black src tests
 
 
 
