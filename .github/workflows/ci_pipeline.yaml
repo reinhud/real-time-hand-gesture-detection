@@ -53,10 +53,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build development image for testing
-        run: docker build -t test_image --target development -f Dockerfile .
+      # TODO: this failes with error: ERROR: failed to solve: failed to register layer: write /usr/local/lib/python3.10/dist-packages/torch/lib/libtorch_cuda.so: no space left on device   # noqa: E501
+      # Github Actions only allows containers to build with 1GB of space.
+      
+      #- name: Build development image for testing
+      #  run: docker build -t test_image --target development -f Dockerfile .
 
-      - name: Run tests
-        run: docker run --rm -v "${{ github.workspace }}:/workspaces/real-time-hand-gesture-detection" test_image make coverage
+      #- name: Run tests
+      #  run: docker run --rm -v "${{ github.workspace }}:/workspaces/real-time-hand-gesture-detection" test_image make coverage
 
 
