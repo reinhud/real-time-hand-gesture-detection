@@ -1,6 +1,4 @@
 # Github Actions Workflow for CI
-
-
 name: CI
 run-name: Contributer "${{ github.actor }}" is trying to ${{ github.event_name }} branch ${{ github.ref }}.🚀
 
@@ -24,7 +22,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: "3.10.2"
+          python-version: "3.10"
       
       - name: Install poetry
         run: |
