@@ -46,6 +46,7 @@ Please make sure you have the following dependencies set up on your system:
 
 ## 4. Usage
 To interact with the project, you can use the following commands for common usecases:
+
 ```bash
 # Show help
 make help
@@ -70,6 +71,7 @@ poetry add <package>
 
 # Lock the dependencies
 poetry lock
+
 ```
 
 

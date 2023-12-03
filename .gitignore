@@ -160,5 +160,5 @@ cython_debug/
 #.idea/
 
 # Ignore data folder
-data/raw/
-data/processed/
+data/raw/*
+data/processed/*

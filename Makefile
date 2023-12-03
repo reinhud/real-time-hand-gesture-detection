@@ -1,4 +1,5 @@
-POETRY := $(shell command -v poetry 2> /dev/null)
+# Define commands for common useful tasks.
+
 
 .DEFAULT_GOAL := help
 
