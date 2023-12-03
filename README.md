@@ -45,7 +45,8 @@ Please make sure you have the following dependencies set up on your system:
     - run ```Dev Containers: Reopen in Container```
 
 ## 4. Usage
-To interact with the project, you can use the following Makefile commands:
+To interact with the project, you can use the following commands for common usecases:
+
 ```bash
 # Show help
 make help
@@ -64,6 +65,13 @@ make lint
 
 # Run the formatter
 make format
+
+# Add a package to the project
+poetry add <package>
+
+# Lock the dependencies
+poetry lock
+
 ```
 
 
