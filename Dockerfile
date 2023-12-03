@@ -26,10 +26,12 @@ ENV PYTHONUNBUFFERED=1 \
     # set up dependancy cache 
     POETRY_CACHE_DIR=/root/.cache \
     # venv to isolate poetry installation.
-    POETRY_VIRTUALENVS_PATH="/venv" 
+    POETRY_VIRTUALENVS_PATH="/venv" \
+    # base path used by python to search for modules
+    PROJECT_BASE_PATH="/workspaces/real-time-hand-gesture-detection"
 
-# prepend poetry and venv to path
-ENV PATH="$POETRY_HOME/bin:$POETRY_VIRTUALENVS_PATH/bin:$PATH"
+# prepend poetry, venv and base python path to path
+ENV PATH="$POETRY_HOME/bin:$POETRY_VIRTUALENVS_PATH/bin:$PROJECT_BASE_PATH:$PATH"
 
 RUN echo "Base image build successfully"
 
@@ -101,6 +103,6 @@ FROM builder as production
 COPY --from=builder ${POETRY_VIRTUALENVS_PATH} ${POETRY_VIRTUALENVS_PATH}
 
 # copy project
-COPY . .
+COPY . /workspaces/real-time-hand-gesture-detection/
 
 RUN echo "Production image build successfully"
