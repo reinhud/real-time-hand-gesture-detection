@@ -6,8 +6,9 @@ This project is a real time hand gesture detection using Pytorch. The project is
 - [1. Introduction and Overview](#1-introduction-and-overview)
 - [2. Key Features](#2-getting-started)
 - [3. Getting Started](#2-getting-started)
-- [4. Licence](#3-licence)
-- [5. Acknowledgments](#4-acknowledgments)
+- [4. Usage](#4-usage)
+- [5. Licence](#3-licence)
+- [6. Acknowledgments](#4-acknowledgments)
 
 
 ## 1. Introduction and Overview
@@ -24,14 +25,15 @@ Welcome to the Real-Time Hand Gesture Detection project! This project is part of
 To get started with the project, follow the instructions below.
 
 #### Dependencies
-##### Windows
+Please make sure you have the following dependencies set up on your system:
 1. [VSCode](https://code.visualstudio.com/download)
 2. [DevContainer Extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-3. [WSL Extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl)
-4. [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install)
-5. [Docker](https://docs.docker.com/docker-for-windows/install/)
-6. [CUDA Toolkit](https://docs.nvidia.com/cuda/wsl-user-guide/index.html)
-7. [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+3. [Docker](https://docs.docker.com/docker-for-windows/install/)
+4. [CUDA Toolkit](https://docs.nvidia.com/cuda/wsl-user-guide/index.html)
+5. [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+###### Windows only
+6. [WSL Extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl)
+7. [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install)
 
 #### How to set up dev environment
 1. Clone the repository.
@@ -42,9 +44,37 @@ To get started with the project, follow the instructions below.
     - Open VsCode command palette(strg+p)
     - run ```Dev Containers: Reopen in Container```
 
+## 4. Usage
+To interact with the project, you can use the following commands for common usecases:
+```bash
+# Show help
+make help
 
-## 4. Licence
+# Clean the project
+make clean
+
+# Run the tests
+make test
+
+# Run the tests with coverage
+make coverage
+
+# Run the linter
+make lint
+
+# Run the formatter
+make format
+
+# Add a package to the project
+poetry add <package>
+
+# Lock the dependencies
+poetry lock
+```
+
+
+## 5. Licence
 This project is licensed under the MIT licence - see LICENSE file for details.
 
 
-## 5. Acknowledgments
+## 6. Acknowledgments

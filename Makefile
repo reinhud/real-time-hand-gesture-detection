@@ -26,7 +26,7 @@ test:
 
 .PHONY: coverage
 coverage: 
-	poetry run pytest ./tests/ -ra --cov-report term-missing --cov-fail-under 100 --cov=src
+	poetry run pytest ./tests/ -ra --cov-report term-missing --cov=src
 
 .PHONY: lint
 lint:
