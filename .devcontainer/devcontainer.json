@@ -7,17 +7,13 @@
 		"context": "..",
 		"dockerfile": "../Dockerfile",
 		// Use development stage.
-		"target": "development"
+		"target": "development",
 	},
-	// Mount local source code into container.
-	//"mounts": [
-	//	"source=${localWorkspaceFolder},target=/workspaces/real-time-hand-gesture-detection,type=bind,consistency=cached"
+	// Uncomment to ctivate GPU usage as additional container specific runtime settings.
+	//"runArgs": [
+	//	"--gpus",
+	//	"all"
 	//],
-	// Activate GPU usage as additional container specific runtime settings.
-	"runArgs": [
-		"--gpus",
-		"all"
-	],
 	// Run startup script after the container is created.
 	"postCreateCommand": "sh start.sh",
 	// Configure tool-specific properties.

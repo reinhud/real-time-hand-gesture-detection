@@ -1,13 +1,11 @@
 import torch
 
-from src.config.logging.logger import logger
-
-# from src.config.logging.logger import logger
+from src.config.base_logger import base_logger
 
 
 def log_pytorch_info() -> None:
     """Print info about PyTorch version and GPU availability."""
-    logger.info("########## PyTorch Device Info ##########")
+    base_logger.info("########## PyTorch Device Info ##########")
 
     # Check if GPU is available
     if torch.cuda.is_available():
@@ -18,26 +16,26 @@ def log_pytorch_info() -> None:
         devices = [torch.device(f"cuda:{i}") for i in range(num_gpus)]
 
         # Display GPU information
-        logger.info(f"{num_gpus} GPU(s) are available!")
+        base_logger.info(f"{num_gpus} GPU(s) are available!")
         for i, device in enumerate(devices):
-            logger.info(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+            base_logger.info(f"GPU {i}: {torch.cuda.get_device_name(i)}")
 
-        logger.info(f"Using GPUs: {', '.join([str(i) for i in range(num_gpus)])}")
+        base_logger.info(f"Using GPUs: {', '.join([str(i) for i in range(num_gpus)])}")
     else:
         # If GPU is not available, fall back to CPU
         device = torch.device("cpu")
-        logger.info("GPU is not available. Falling back to CPU.")
+        base_logger.info("GPU is not available. Falling back to CPU.")
 
     # Display general PyTorch version and device information
-    logger.info(f"PyTorch version: {torch.__version__}")
-    logger.info(f"Using device: {device}")
+    base_logger.info(f"PyTorch version: {torch.__version__}")
+    base_logger.info(f"Using device: {device}")
 
     # Additional information if GPU is available
     if torch.cuda.is_available():
-        logger.info(f"CUDA version: {torch.version.cuda}")
-        logger.info(f"CUDNN version: {torch.backends.cudnn.version()}")
+        base_logger.info(f"CUDA version: {torch.version.cuda}")
+        base_logger.info(f"CUDNN version: {torch.backends.cudnn.version()}")
 
-    logger.info("#########################################")
+    base_logger.info("########################################")
 
 
 if __name__ == "__main__":
