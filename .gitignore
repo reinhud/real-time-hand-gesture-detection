@@ -159,6 +159,12 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Ignore data folder
-data/raw/*
-data/processed/*
+# Ignore all image files in the 'data' directory and its subdirectories
+data/**/*.png
+data/**/*.jpg
+data/**/*.jpeg
+data/cifar10/**
+
+# Ignore Lighning and MLFlow logs
+mlflow_runs/
+lightning_logs/
