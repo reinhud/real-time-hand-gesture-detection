@@ -45,34 +45,58 @@ Please make sure you have the following dependencies set up on your system:
     - run ```Dev Containers: Reopen in Container```
 
 ## 4. Usage
+
 To interact with the project, you can use the following commands for common usecases:
 
+#### Basic
 ```bash
 # Show help
 make help
 
+# Log some information about torch and devices
+torch-info
+
 # Clean the project
-make clean
+make clean-code
 
 # Run the tests
-make test
+make test-code
 
 # Run the tests with coverage
 make coverage
 
 # Run the linter
-make lint
+make lint-code
 
 # Run the formatter
-make format
+make format-code
 
 # Add a package to the project
 poetry add <package>
 
 # Lock the dependencies
 poetry lock
+```
+
+#### Lightning related:
+Using the Lightning CLI allows us to easily experiment with our models, train from config or train
+with different parameters without the need to change our code. The following are ways to involke the cli:
+```bash
+# Acces the lightning cli
+make cli ARGS="[command] <args>"
+# Example training model from config
+make cli ARGS="fit --config src/config/model_config/resnet_test.yaml"
+# Example training model from config overwriting some parameters
+make cli ARGS="fit --config src/config/model_config/resnet_test.yaml --trainer.max_epochs=10"
+# You can use all optimizers and schedulers from pytroch too
+make cli ARGS="fit --config src/config/model_config/resnet_test.yaml --trainer.max_epochs=10 --trainer.optim.lr=0.01 --trainer.optim.weight_decay=0.0001 --trainer.optim.scheduler.name=StepLR --trainer.optim.scheduler.step_size=5 --trainer.optim.scheduler.gamma=0.1"
+
+# You can use standard pytorch lightning way too
+python src/cli.py fit --config src/config/model_config/resnet_test.yaml --trainer.max_epochs=10 --optimizer LitAdam
 
 ```
+
+
 
 
 ## 5. Licence

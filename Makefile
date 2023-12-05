@@ -5,25 +5,21 @@ help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  help          		    Show this help"
-	@echo "  torch-info   			Show torch information related to the project"
-	@echo "  clean-code       		Clean the project"
-	@echo "  test-code          	Run the tests"
-	@echo "  coverage      			Run the tests with coverage"
-	@echo "  lint-code          	Run the linter"
-	@echo "  format-code        	Run the formatter"
-	@echo "  train           	Fit model with as specified in src/train.py"
-	@echo "  cli-fit-model          Fit the model using PyTorch Lightning CLI"
-	@echo "  cli-validate-model     Perform one evaluation epoch over the validation set using PyTorch Lightning CLI"
-	@echo "  cli-test-model         Perform one evaluation epoch over the test set using PyTorch Lightning CLI"
-	@echo "  cli-predict-model      Run inference on your data. This will call the model forward function to compute predictions using PyTorch Lightning CLI."
-	@echo "  lightning-help     	Show the help menu of the Lightning CLI"
-	@echo "  ui   					Open the MLFlow UI"
 
+	@echo "  help          		    		Show this help"
+	@echo "  torch-info   					Show torch information related to the project"
+	@echo "  clean-code       				Clean the project"
+	@echo "  test-code          			Run the tests"
+	@echo "  coverage      					Run the tests with coverage"
+	@echo "  lint-code          			Run the linter"
+	@echo "  format-code        			Run the formatter"
+	@echo "  cli ARGS="<command> --<arg>"	Use Lightning CLI"
+	@echo "  cli-help        				Show Lightning CLI help"
 
 .PHONY: torch-info
 torch-info:
-	poetry run python src/utility/log_pytorch_info.py
+	poetry run python src/utility/log_torch_info.py
+
 
 .PHONY: clean-code
 clean-code:
@@ -40,11 +36,24 @@ coverage:
 
 .PHONY: lint-code
 lint-code:
-	poetry run flake8 src tests
+	poetry run flake8 src
 
 .PHONY: format-code
 format-code:
-	poetry run black src tests
+	poetry run isort src
+	poetry run black src
+
+.PHONY: cli
+cli:
+	poetry run python src/cli.py $(ARGS)
+
+.PHONY: cli-help
+cli-help:
+	poetry run python src/cli.py --help
+
+.PHONY: ui
+ui:
+	poetry run mlflow ui --backend-store-uri mlflow_runs 
 
 .PHONY: train
 train:

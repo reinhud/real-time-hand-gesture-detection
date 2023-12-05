@@ -4,9 +4,11 @@ import torch.nn as nn
 import torchvision.models as models
 
 
-class LResNet_test(L.LightningModule):
-    def __init__(self):
+class LResNetTest(L.LightningModule):
+    def __init__(self, lr=1e-3):
         super().__init__()
+        self.lr = lr
+        # self.save_hyperparameters()
 
         # init a pretrained resnet
         backbone = models.resnet18(weights="DEFAULT")
@@ -30,7 +32,7 @@ class LResNet_test(L.LightningModule):
         outputs = self(inputs)
         loss_fn = nn.CrossEntropyLoss()
         loss = loss_fn(outputs, targets)
-        # self.logger.log_metrics({"train_loss": float(loss)})
+        self.log("train_loss", float(loss))
         return {"loss": loss}
 
     def validation_step(self, batch, batch_idx):
@@ -39,10 +41,10 @@ class LResNet_test(L.LightningModule):
         loss_fn = nn.CrossEntropyLoss()
         loss = loss_fn(outputs, targets)
         acc = (outputs.argmax(1) == targets).float().mean()
-        # self.log("val_loss", float(loss))
-        # self.log("val_acc", float(acc))
+        self.log("val_loss", float(loss))
+        self.log("val_acc", float(acc))
         return {"val_loss": loss, "val_acc": acc}
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
