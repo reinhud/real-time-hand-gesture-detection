@@ -12,7 +12,6 @@ help:
 	@echo "  coverage      					Run the tests with coverage"
 	@echo "  lint-code          			Run the linter"
 	@echo "  format-code        			Run the formatter"
-	@echo "  train           				Fit model with as specified in src/train.py"
 	@echo "  cli ARGS="<command> --<arg>"	Use Lightning CLI"
 	@echo "  cli-help        				Show Lightning CLI help"
 
@@ -41,10 +40,6 @@ lint-code:
 format-code:
 	poetry run isort src
 	poetry run black src
-
-.PHONY: train
-train:
-	poetry run python src/train.py
 
 .PHONY: cli
 cli:
