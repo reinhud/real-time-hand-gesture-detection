@@ -1,48 +1,58 @@
 """Run this file to train the model."""
+from typing import Literal
+
 import lightning as L
 import mlflow
-from lightning.pytorch.callbacks import DeviceStatsMonitor
+from lightning.pytorch.callbacks import (
+    DeviceStatsMonitor,
+    ModelCheckpoint,
+    ModelSummary,
+)
 from lightning.pytorch.loggers import MLFlowLogger
-from lightning.pytorch.profilers import PyTorchProfiler
-from mlflow import MlflowClient
 
 from src.data_modules.cifar10 import CIFAR10DataModule
-from src.models.resnet_test import LResNet_test
+from src.models.resnet_test import LResNetTest
 from src.utility.style_training_output import model_summary, progress_bar
 
 # ================================================== #
 # Set training config                                #
 # ================================================== #
-MODEL = LResNet_test()
+MODEL = LResNetTest()
 DATAMODULE = CIFAR10DataModule()
 
 MAX_EPOCH = 2
 NUM_SANITY_VAL_STEPS = 2
 
 # For logging MLFlow
-EXPERIMENT_NAME = "test"
+EXPERIMENT_NAME = "Testing MLFlow"
+DATASET_NAME: Literal["CIFAR10", "nvGesture", "egoGesture"] = "CIFAR10"
 # ================================================== #
 # ================================================== #
-
-# Monitor pytorch functions to find bottlenecks
-profiler = PyTorchProfiler()
-
-# Set up logger for MLFlow
-mlf_logger = MLFlowLogger(
+mlflow_logger = MLFlowLogger(
     experiment_name=EXPERIMENT_NAME,
     tracking_uri="file:./mlflow_runs",
     log_model=True,
+    tags={"dataset": DATASET_NAME, "model": MODEL.__class__.__name__},
 )
 
 # Set up trainer
+callbacks = [
+    # StochasticWeightAveraging(swa_lrs=1e-2),
+    DeviceStatsMonitor(),
+    ModelSummary(max_depth=-1),
+    ModelCheckpoint(monitor="val_loss", mode="min"),
+    progress_bar,
+    model_summary,
+]
+
 trainer = L.Trainer(
     precision="16-mixed",
     # fast_dev_run=True,
     max_epochs=MAX_EPOCH,
     num_sanity_val_steps=NUM_SANITY_VAL_STEPS,
-    logger=mlf_logger,
-    # profiler=profiler,
-    callbacks=[DeviceStatsMonitor(), progress_bar, model_summary],
+    profiler="simple",
+    # logger=mlflow_logger,
+    callbacks=callbacks,
 )
 
 
@@ -59,15 +69,13 @@ def print_auto_logged_info(r):
 
 
 if __name__ == "__main__":
-    # Enable auto-logging to MLFlow to log metrics and parameters
     # MLFlow Setup
     mlflow.set_tracking_uri("file:./mlflow_runs")
-    # mlflow.set_experiment(EXPERIMENT_NAME)
+    # Enable auto-logging to MLFlow to log metrics and parameters
+
     mlflow.pytorch.autolog()
 
     # Train the model.
     # with mlflow.start_run() as run:
     trainer.fit(model=MODEL, datamodule=DATAMODULE)
 
-    # Fetch the auto logged parameters and metrics.
-    # print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))

@@ -5,5 +5,5 @@
 # source /venv/bin/activate
 
 # Get Pytorch device info
-poetry run python src/utility/log_pytorch_info.py
+poetry run python src/utility/log_torch_info.py
 
