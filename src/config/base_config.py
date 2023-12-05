@@ -11,16 +11,23 @@ class BaseConfig(BaseSettings):
     This is using pydantic_settings to load configs from env file and validate them.
     """
 
-    # Load from env
-    ENVIRONMENT: Literal["development", "production"] = "development"
-    LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "DEBUG"
-
     # Configure based on env file
     model_config = SettingsConfigDict(
         env_prefix="BASE_",
-        env_file="/workspaces/real-time-hand-gesture-detection/config/.env",
+        env_file="/workspaces/real-time-hand-gesture-detection/.env",
         env_file_encoding="utf-8",
     )
+
+    # Project settings
+    ENVIRONMENT: Literal["development", "production"] = "development"
+    LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "DEBUG"
+    USE_GPU: bool = False
+
+    # MLFlow settings
+    MLFLOW_TRACKING_URI: str = "file:./mlflow_runs"
+
+    # Data settings
+    DATA_DIR: str = "/workspaces/real-time-hand-gesture-detection/data"
 
 
 @lru_cache()  # Cache the settings.
