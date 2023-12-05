@@ -10,10 +10,12 @@
 		"target": "development",
 	},
 	// Uncomment to ctivate GPU usage as additional container specific runtime settings.
-	"runArgs": [
-		"--gpus",
-		"all"
-	],
+
+	//"runArgs": [
+	//	"--gpus",
+	//	"all"
+	//],
+
 	// Run startup script after the container is created.
 	"postCreateCommand": "sh start.sh",
 	// Configure tool-specific properties.

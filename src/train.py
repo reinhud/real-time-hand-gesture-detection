@@ -44,6 +44,7 @@ callbacks = [
     progress_bar,
     model_summary,
 ]
+
 trainer = L.Trainer(
     precision="16-mixed",
     # fast_dev_run=True,
@@ -55,12 +56,26 @@ trainer = L.Trainer(
 )
 
 
+def print_auto_logged_info(r):
+    tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+    artifacts = [
+        f.path for f in MlflowClient(tracking_uri="file:./mlflow_runs").list_artifacts(r.info.run_id, "model")
+    ]
+    print(f"run_id: {r.info.run_id}")
+    print(f"artifacts: {artifacts}")
+    print(f"params: {r.data.params}")
+    print(f"metrics: {r.data.metrics}")
+    print(f"tags: {tags}")
+
+
 if __name__ == "__main__":
     # MLFlow Setup
     mlflow.set_tracking_uri("file:./mlflow_runs")
     # Enable auto-logging to MLFlow to log metrics and parameters
+
     mlflow.pytorch.autolog()
 
     # Train the model.
     # with mlflow.start_run() as run:
     trainer.fit(model=MODEL, datamodule=DATAMODULE)
+

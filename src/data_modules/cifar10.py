@@ -94,3 +94,4 @@ class CIFAR10DataModule(L.LightningDataModule):
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
         )
+      

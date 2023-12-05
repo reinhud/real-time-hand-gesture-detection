@@ -76,7 +76,6 @@ poetry add <package>
 
 # Lock the dependencies
 poetry lock
-
 ```
 
 #### Lightning related:
@@ -94,9 +93,9 @@ make cli ARGS="fit --config src/config/model_config/resnet_test.yaml --trainer.m
 
 # You can use standard pytorch lightning way too
 python src/cli.py fit --config src/config/model_config/resnet_test.yaml --trainer.max_epochs=10 --optimizer LitAdam
-```
 
 ```
+
 
 
 
