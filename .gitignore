@@ -164,6 +164,8 @@ data/**/*.png
 data/**/*.jpg
 data/**/*.jpeg
 data/cifar10/**
+*.gz
+*.tar
 
 # Ignore Lighning and MLFlow logs
 mlflow_runs/
