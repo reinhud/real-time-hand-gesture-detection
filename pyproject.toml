@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "Real Time Hand Gesture Detection"
+name = "gesture_detection"
 version = "0.1.0"
 description = "Real time hand gesture detection"
 authors = ["Reinhud"]
@@ -50,4 +50,4 @@ profile = "black"
 max-line-length = 110
 
 [tool.pytest.ini_options]
-pythonpath  = ["src"]
+pythonpath  = ["gesture_detection"]

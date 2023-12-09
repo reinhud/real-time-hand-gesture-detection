@@ -92,7 +92,7 @@ make cli ARGS="fit --config src/config/model_config/resnet_test.yaml --trainer.m
 make cli ARGS="fit --config src/config/model_config/resnet_test.yaml --trainer.max_epochs=10 --trainer.optim.lr=0.01 --trainer.optim.weight_decay=0.0001 --trainer.optim.scheduler.name=StepLR --trainer.optim.scheduler.step_size=5 --trainer.optim.scheduler.gamma=0.1"
 
 # You can use standard pytorch lightning way too
-python src/cli.py fit --config src/config/model_config/resnet_test.yaml --trainer.max_epochs=10 --optimizer LitAdam
+python gesture_detection/cli.py fit --config gesture_detection/config/model_config/resnet_test.yaml --trainer.max_epochs=10 --optimizer LitAdam
 
 ```
 

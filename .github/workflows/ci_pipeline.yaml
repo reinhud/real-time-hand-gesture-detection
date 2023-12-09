@@ -42,7 +42,7 @@ jobs:
         run: poetry install --no-root --no-interaction --only dev
 
       - name: Linting
-        run: poetry run flake8 src tests
+        run: poetry run flake8 gesture_detection tests
 
   
   testing:

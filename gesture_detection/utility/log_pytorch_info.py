@@ -1,6 +1,6 @@
 import torch
 
-from src.config.base_logger import base_logger
+from gesture_detection.config.base_logger import base_logger
 
 
 def log_pytorch_info() -> None:

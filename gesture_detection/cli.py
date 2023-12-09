@@ -2,13 +2,13 @@ import mlflow
 from lightning.pytorch.cli import LightningCLI
 from rich import get_console
 
-from src.callbacks.model_summary import CustomRichModelSummary
-from src.callbacks.progress_bar import CustomRichProgressBar
-from src.callbacks.run_printer import RunPrinter
+from gesture_detection.callbacks.model_summary import CustomRichModelSummary
+from gesture_detection.callbacks.progress_bar import CustomRichProgressBar
+from gesture_detection.callbacks.run_printer import RunPrinter
 
 # 🚨❗Copy all lightning models and data modules here to be registered by LightningCLI
-from src.datasets.cifar10 import CIFAR10DataModule  # noqa: F401
-from src.models.resnet_test import LResNetTest  # noqa: F401
+from gesture_detection.datasets.cifar10 import CIFAR10DataModule  # noqa: F401
+from gesture_detection.models.resnet_test import LResNetTest  # noqa: F401
 
 
 class CustomLightningCLI(LightningCLI):
@@ -40,7 +40,7 @@ def cli_main():
 
     The cli can be involved in two ways:
     1. Directly call this file with
-        `python src/cli.py fit --trainer.max_epochs=10 --model=LResNetTest --data=CIFAR10DataModule"`
+        `python gesture_detection/cli.py fit --trainer.max_epochs=10 --model=LResNetTest --data=CIFAR10DataModule"`
     2. From the root directory
         `make cli ARGS="fit --trainer.max_epochs=10 --model=LResNetTest --data=CIFAR10DataModule"`
 
@@ -56,9 +56,9 @@ def cli_main():
     --mlflow_experiment="Testing MLFlow"
 
     Examples:
-        make cli ARGS="fit --config src/config/model_config/resnet_test.yaml"
-        make cli ARGS="fit --config src/config/model_config/resnet_test.yaml --mlflow_experiment='Testing MLFlow'"    # noqa: E501
-        make cli ARGS="fit --config src/config/model_config/resnet_test.yaml --trainer.max_epochs=10 --lr=1e-2"     # noqa: E501
+        make cli ARGS="fit --config gesture_detection/config/model_config/resnet_test.yaml"
+        make cli ARGS="fit --config gesture_detection/config/model_config/resnet_test.yaml --mlflow_experiment='Testing MLFlow'"    # noqa: E501
+        make cli ARGS="fit --config gesture_detection/config/model_config/resnet_test.yaml --trainer.max_epochs=10 --lr=1e-2"     # noqa: E501
         make cli ARGS="fit --model Model1 --data FakeDataset1 --optimizer LitAdam --lr_scheduler LitLRScheduler"    # noqa: E501
     """
     # Indicate run start in console

@@ -45,11 +45,11 @@ trainer:
   reload_dataloaders_every_n_epochs: 0
   default_root_dir: null
 model:
-  class_path: src.models.resnet_test.LResNetTest
+  class_path: gesture_detection.models.resnet_test.LResNetTest
   init_args:
     lr: 0.001
 data:
-  class_path: src.datasets.cifar10.CIFAR10DataModule
+  class_path: gesture_detection.datasets.cifar10.CIFAR10DataModule
   init_args:
     batch_size: 64
     num_workers: null
