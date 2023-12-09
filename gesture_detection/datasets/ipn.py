@@ -27,17 +27,11 @@ def pil_loader(path):
         with Image.open(f) as img:
             img = img.convert('RGB')
             img = np.array(img).astype(np.float32) / 255
-            return torchvision.transforms.functional.to_tensor(img).unsqueeze(0)
+            return img
 
 
 def get_video_loader():
     return video_loader
-
-
-def get_spacial_transforms():
-    return transforms.Compose([
-        transforms.PILToTensor(),
-    ])
 
 
 def video_loader(video_path, frame_indices):
@@ -131,11 +125,11 @@ class IPN(data.Dataset):
         target label of the clip
     """
 
-    def __init__(self, data_path, annotation_path, sample_length, spacial_transforms=get_spacial_transforms,
+    def __init__(self, data_path, annotation_path, sample_length, transform=None,
                  video_loader=get_video_loader):
         self.video_loader = video_loader()
         self.dataset = create_dataset(data_path, annotation_path, sample_length)
-        self.spacial_transforms = spacial_transforms()
+        self.transform = transform
 
     def __getitem__(self, index):
         image_path = self.dataset[index]['video']
@@ -144,8 +138,8 @@ class IPN(data.Dataset):
 
         clip = self.video_loader(image_path, frame_indices)
 
-        #if self.spacial_transforms is not None:
-        #    clip = [self.spacial_transforms(img) for img in clip]
+        if self.transform is not None:
+            clip = [self.transform(img) for img in clip]
 
         image_dimension = clip[0].shape[-2:]
         clip = torch.cat(clip, 0).view((frame_number, -1) + image_dimension)
@@ -195,6 +189,7 @@ class IPNDataModule(L.LightningDataModule):
             [
                 transforms.ToTensor(),
                 transforms.Normalize(mean=(0.4914, 0.4822, 0.4465), std=(0.2023, 0.1994, 0.2010)),
+                transforms.Resize((120, 120))
             ]
         )
 
@@ -205,7 +200,8 @@ class IPNDataModule(L.LightningDataModule):
             dataset = IPN(
                 dataset_path / "frames",
                 dataset_path / "Annot_TrainList.txt",
-                self.sample_length
+                self.sample_length,
+                transform=transform
             )
             num_train = int(len(dataset) * self.train_ratio)
             self.train_dataset, self.valid_dataset = random_split(
@@ -218,7 +214,8 @@ class IPNDataModule(L.LightningDataModule):
             self.test_dataset = IPN(
                 dataset_path / "frames",
                 dataset_path / "Annot_TestList.txt",
-                self.sample_length
+                self.sample_length,
+                transform=transform
             )
 
     def train_dataloader(self):
