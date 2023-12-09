@@ -7,7 +7,7 @@ from src.callbacks.progress_bar import CustomRichProgressBar
 from src.callbacks.run_printer import RunPrinter
 
 # 🚨❗Copy all lightning models and data modules here to be registered by LightningCLI
-from src.data_modules.cifar10 import CIFAR10DataModule  # noqa: F401
+from src.datasets.cifar10 import CIFAR10DataModule  # noqa: F401
 from src.models.resnet_test import LResNetTest  # noqa: F401
 
 
