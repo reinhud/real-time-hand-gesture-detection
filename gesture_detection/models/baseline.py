@@ -1,15 +1,20 @@
+from typing import Any
+
+import lightning as L
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
+from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 
 
-class Baseline(nn.Module):
+class Baseline(L.LightningModule):
 
-    def __init__(self):
+    def __init__(self, num_classes: int, lr: float = 0.01):
         super().__init__()
+        self.lr = lr
         self.num_features = 160
-        self.num_classes = 10
+        self.num_classes = num_classes
 
         self.backbone = torchvision.models.mobilenet_v3_large()
         self.backbone.features = nn.Sequential(
@@ -34,6 +39,33 @@ class Baseline(nn.Module):
             ret[:, t] = self.linear1(out.squeeze(1))
         return ret
 
+    def training_step(self, batch, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
+        inputs, targets = batch
+        batch_size, sample_length = inputs.shape[:2]
+        outputs = self(inputs).flatten(0, 1)  # [batch_size * sample_length, num_classes
+
+        # since targets contains only one int per time series, repeat it for the number of samples in a sequence
+        targets = torch.repeat_interleave(targets, sample_length)
+        loss = torch.nn.functional.cross_entropy(outputs, targets)
+        return loss
+
+    def validation_step(self, batch, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
+        inputs, targets = batch
+        batch_size, sample_length = inputs.shape[:2]
+        outputs = self(inputs).flatten(0, 1)  # [batch_size * sample_length, num_classes
+
+        # since targets contains only one int per time series, repeat it for the number of samples in a sequence
+        targets = torch.repeat_interleave(targets, sample_length)
+        loss = torch.nn.functional.cross_entropy(outputs, targets)
+        return loss
+
+    def configure_optimizers(self) -> OptimizerLRScheduler:
+        opt = torch.optim.Adam([
+                #  {"params": self.backbone.parameters(), "lr": 0.0001},
+                {"params": self.sequence_model.parameters()},
+                {"params": self.linear1.parameters()}
+            ], lr=self.lr)
+        return opt
 
 def main():
     model = Baseline()
