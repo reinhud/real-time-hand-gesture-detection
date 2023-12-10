@@ -4,7 +4,7 @@ import sys
 
 from colorlog import ColoredFormatter, StreamHandler
 
-from src.config.base_config import get_base_config
+from gesture_detection.config.base_config import get_base_config
 
 # Set colors, style and format for logging.
 logging_formatter = ColoredFormatter(

@@ -1,6 +1,6 @@
 import psutil
 
-from src.config.base_logger import base_logger
+from gesture_detection.config.base_logger import base_logger
 
 
 def find_num_worker_default(config_value: int | None):

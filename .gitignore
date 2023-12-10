@@ -157,15 +157,22 @@ cython_debug/
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
+.idea/
+
 
 # Ignore all image files in the 'data' directory and its subdirectories
-data/**/*.png
-data/**/*.jpg
-data/**/*.jpeg
-data/cifar10/**
+#data/**/*.png
+#data/**/*.jpg
+#data/**/*.jpeg
+#data/cifar10/**
+
+# Ignore /data directory
+data/
 *.gz
 *.tar
+
+# Ignore Os generated files
+.DS_Store
 
 
 # Ignore Lighning and MLFlow logs

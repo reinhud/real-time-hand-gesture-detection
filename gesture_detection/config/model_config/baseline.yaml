@@ -45,12 +45,15 @@ trainer:
   reload_dataloaders_every_n_epochs: 0
   default_root_dir: null
 model:
-  class_path: src.models.resnet_test.LResNetTest
+  class_path: gesture_detection.models.baseline.Baseline
   init_args:
+    num_classes: 14
     lr: 0.001
 data:
-  class_path: src.data_modules.cifar10.CIFAR10DataModule
+  class_path: gesture_detection.datasets.ipn.IPNDataModule
   init_args:
-    batch_size: 64
-    num_workers: null
+    data_dir: data/ipnhand
+    batch_size: 2
+    sample_length: 2
+    num_workers: 0
     pin_memory: true

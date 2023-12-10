@@ -1,7 +1,7 @@
 import pytest
 from pydantic_settings import BaseSettings
 
-from src.config.base_config import get_base_config
+from gesture_detection.config.base_config import get_base_config
 
 
 class TestBaseConfig:

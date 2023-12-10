@@ -4,8 +4,8 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, random_split
 from torchvision.datasets import CIFAR10
 
-from src.config.base_config import get_base_config
-from src.utility.find_num_worker_default import find_num_worker_default
+from gesture_detection.config.base_config import get_base_config
+from gesture_detection.utility.find_num_worker_default import find_num_worker_default
 
 base_config = get_base_config()
 

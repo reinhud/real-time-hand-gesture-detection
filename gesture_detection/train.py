@@ -10,9 +10,9 @@ from lightning.pytorch.callbacks import (
 )
 from lightning.pytorch.loggers import MLFlowLogger
 
-from src.data_modules.cifar10 import CIFAR10DataModule
-from src.models.resnet_test import LResNetTest
-from src.utility.style_training_output import model_summary, progress_bar
+from gesture_detection.datasets.cifar10 import CIFAR10DataModule
+from gesture_detection.models.resnet_test import LResNetTest
+from gesture_detection.utility.style_training_output import model_summary, progress_bar
 
 # ================================================== #
 # Set training config                                #
