@@ -10,13 +10,14 @@ import torchvision.transforms as transforms
 import lightning as L
 from torch.utils.data import DataLoader, random_split
 from pathlib import Path
+import albumentations as A
 
 from gesture_detection.config.base_config import get_base_config
 from gesture_detection.utility.find_num_worker_default import find_num_worker_default
 
 
 def load_csv(path):
-    with open(path, 'r') as f:
+    with open(os.path.abspath(path), 'r') as f:
         reader = csv.DictReader(f)
 
         return list(reader)
@@ -39,13 +40,12 @@ def video_loader(video_path, frame_indices):
 
     video = []
     for i in frame_indices:
-        image_path = os.path.join(video_path, '{:s}_{:06d}.jpg'.format(video_path.split('/')[-1], i))
+        image_path = os.path.join(video_path, '{:s}_{:06d}.jpg'.format(video_path.split('/')[-1], i+1))
 
         if os.path.exists(image_path):
             video.append(image_loader(image_path))
         else:
-            print(f'{image_path} does not exist')
-            return video
+            raise FileNotFoundError(f'{image_path} does not exist')
 
     return video
 
@@ -61,35 +61,40 @@ def all_indices(start, end):
 def create_dataset(data_path, annotation_path, sample_length):
     annotations = load_csv(annotation_path)
 
-    dataset = []
+    # group annotations by their containing video
+    ann_by_vid_dict = {}
+    for ann in annotations:
+        if ann["video"] in ann_by_vid_dict.keys():
+            ann_by_vid_dict[ann["video"]].append(ann)
+        else:
+            ann_by_vid_dict[ann["video"]] = [ann]
 
-    for i, row in enumerate(annotations):
-        video_path = os.path.join(data_path, row['video'])
+    # create a list of annotations for each video
+    # break label list into sequences of length sample_length
+    ann_by_vid_list = {}
+    dataset = []
+    for vid in ann_by_vid_dict.keys():
+        video_path = os.path.join(data_path, vid)
 
         if not os.path.exists(video_path):
             continue
 
-        start = int(row['t_start'])
-        end = int(row['t_end'])
+        anns = ann_by_vid_dict[vid]
+        anns = sorted(anns, key=lambda ann: ann["t_start"])  # sort by t_start
 
-        if sample_length != None:
-            frame_indices = sample_indices(start, end, sample_length)
-        else:
-            frame_indices = all_indices(start, end)
+        labels = []
+        for ann in anns:
+            labels.extend([int(ann["id"])] * int(ann["frames"]))
+        ann_by_vid_list[vid] = labels
 
-        frame_number = len(frame_indices)
-
-        label = row['id']
-
-        sample = {
-            'id': i,
-            'video': video_path,
-            'frame_indices': frame_indices,
-            'frame_number': frame_number,
-            'label': label
-        }
-
-        dataset.append(sample)
+        N = len(labels)
+        for idx in range(0, N // sample_length, sample_length):
+            dataset.append({
+                'video': video_path,
+                'frame_indices': np.linspace(idx, idx+sample_length, sample_length).astype(np.uint8),
+                'frame_number': sample_length,
+                'labels': labels[idx:idx+sample_length]
+            })
 
     return dataset
 
@@ -139,13 +144,17 @@ class IPN(data.Dataset):
         clip = self.video_loader(image_path, frame_indices)
 
         if self.transform is not None:
-            clip = [self.transform(img) for img in clip]
+            clip_dict = {f"image{i}": clip[i] for i in range(frame_number)}
+            clip_dict["image"] = clip[0]
+            clip_dict = self.transform(**clip_dict)
+            clip = [clip_dict[f"image{i}"] for i in range(frame_number)]
+        clip = [torchvision.transforms.functional.to_tensor(img) for img in clip]
 
         image_dimension = clip[0].shape[-2:]
         clip = torch.cat(clip, 0).view((frame_number, -1) + image_dimension)
 
         # subtract 1 so that labels are in range [0, 13]
-        target = int(self.dataset[index]['label']) - 1
+        target = torch.tensor(self.dataset[index]['labels']) - 1
 
         return clip, target
 
@@ -185,13 +194,12 @@ class IPNDataModule(L.LightningDataModule):
 
     def setup(self, stage: str = None):
         # transforms
-        transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize(mean=(0.4914, 0.4822, 0.4465), std=(0.2023, 0.1994, 0.2010)),
-                transforms.Resize((120, 120))
-            ]
-        )
+        transform = A.Compose([
+            A.RGBShift(0.078, 0.078, 0.078),
+            A.Rotate(30, crop_border=True),
+            A.RandomResizedCrop(224, 224, scale=(0.8, 1.0)),
+            #A.Resize(224, 224)
+        ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)})
 
         dataset_path = Path(self.data_dir)
 
@@ -215,7 +223,6 @@ class IPNDataModule(L.LightningDataModule):
                 dataset_path / "frames",
                 dataset_path / "Annot_TestList.txt",
                 self.sample_length,
-                transform=transform
             )
 
     def train_dataloader(self):
@@ -245,11 +252,20 @@ class IPNDataModule(L.LightningDataModule):
 
 
 def main():
+    sample_length = 64
+    transform = A.Compose([
+        A.RGBShift(0.078, 0.078, 0.078),
+        A.Rotate(30, crop_border=True),
+        A.RandomResizedCrop(120, 120)
+    ], additional_targets={f"image{i}": "image" for i in range(sample_length)})
     dataset = IPN(
         "data/ipnhand/frames",
         "data/ipnhand/Annot_List.txt",
-        64)
-    print(dataset.__getitem__(0))
+        8,
+        transform
+    )
+    for i in range(10):
+        dataset.__getitem__(i)
 
 
 if __name__ == "__main__":
