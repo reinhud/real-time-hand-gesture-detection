@@ -195,7 +195,7 @@ class IPNDataModule(L.LightningDataModule):
     def setup(self, stage: str = None):
         # transforms
         transform = A.Compose([
-            A.RGBShift(0.078, 0.078, 0.078),
+            #A.RGBShift(0.078, 0.078, 0.078),
             A.Rotate(30, crop_border=True),
             A.RandomResizedCrop(224, 224, scale=(0.8, 1.0)),
             #A.Resize(224, 224)
