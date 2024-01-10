@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Union
 
 import lightning as L
 import torch
@@ -7,6 +7,10 @@ import torch.nn.functional as F
 import torchvision
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from torchmetrics import F1Score, Accuracy, ConfusionMatrix
+from torchmetrics.classification import MulticlassConfusionMatrix
+
+from gesture_detection.utility.SequenceMetric import SequenceMetric
+from gesture_detection.utility.plot_confusion_matrix import plot_confusion_matrix
 
 
 class LSTM(L.LightningModule):
@@ -22,7 +26,9 @@ class LSTM(L.LightningModule):
         self.lr = lr
         self.backbone_lr = backbone_lr
         self.weight_decay = weight_decay
-        self.loss_weight = nn.Parameter(torch.tensor(loss_weight)) if loss_weight is not None else None
+        self.register_buffer("loss_weight",
+             torch.tensor(loss_weight) if loss_weight is not None else torch.ones(self.num_classes)
+         )
         # self.num_features = 960  # MBv3-L
         self.num_features = 576  # MBv3-S
         self.num_classes = num_classes
@@ -38,7 +44,8 @@ class LSTM(L.LightningModule):
         self.metric_config = {
             "acc": (Accuracy, {"task": "multiclass", "num_classes": num_classes}),
             "f1": (F1Score, {"task": "multiclass", "num_classes": num_classes}),
-            #"cm": (ConfusionMatrix, {"task": "multiclass", "num_classes": num_classes})
+            "sc": (SequenceMetric, {"num_steps": 32}),
+            "cm": (ConfusionMatrix, {"task": "multiclass", "num_classes": num_classes})
         }
 
         for stage in ["train", "valid", "test"]:
@@ -46,6 +53,13 @@ class LSTM(L.LightningModule):
                 metric_cls, metric_params = self.metric_config[metric]
                 setattr(self, f"{metric}_{stage}", metric_cls(**metric_params))
 
+    def log_stage(self, stage: str, outputs: torch.Tensor, targets: torch.Tensor):
+        for metric in self.metric_config.keys():
+            metric_attr = getattr(self, f"{metric}_{stage}")
+            metric_attr.update(outputs, targets)
+
+            if not isinstance(metric_attr, Union[SequenceMetric, MulticlassConfusionMatrix]):
+                self.log(f"{stage}_{metric}", metric_attr, on_step=False, on_epoch=True)
 
     def forward(self, x):
         batch_size, time_steps, channels, height, width = x.shape
@@ -63,12 +77,29 @@ class LSTM(L.LightningModule):
         loss = torch.nn.functional.cross_entropy(outputs, targets, weight=self.loss_weight)
 
         self.log("train_loss", loss, on_step=True, on_epoch=True)
-        stage = "train"
+        self.log_stage("train", outputs, targets)
+        return loss
+
+    def metric_reset(self, stage: str):
         for metric in self.metric_config.keys():
             metric_attr = getattr(self, f"{metric}_{stage}")
-            metric_attr(outputs, targets)
-            self.log(f"{stage}_{metric}", metric_attr, on_step=False, on_epoch=True)
-        return loss
+
+            if isinstance(metric_attr, SequenceMetric):
+                fig, ax = metric_attr.plot()
+                self.logger.experiment.add_figure(f"{stage}_{metric}", fig, self.global_step)
+            elif isinstance(metric_attr, MulticlassConfusionMatrix):
+                fig, ax = plot_confusion_matrix(metric_attr.compute())
+                self.logger.experiment.add_figure(f"{stage}_{metric}", fig, self.global_step)
+            metric_attr.reset()
+
+    def on_train_epoch_end(self) -> None:
+        self.metric_reset("train")
+
+    def on_validation_epoch_end(self) -> None:
+        self.metric_reset("valid")
+
+    def on_test_epoch_end(self) -> None:
+        self.metric_reset("test")
 
     def validation_step(self, batch, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
         inputs, targets = batch
@@ -78,11 +109,7 @@ class LSTM(L.LightningModule):
         loss = torch.nn.functional.cross_entropy(outputs, targets, weight=self.loss_weight)
 
         self.log("valid_loss", loss, on_step=True, on_epoch=True)
-        stage = "valid"
-        for metric in self.metric_config.keys():
-            metric_attr = getattr(self, f"{metric}_{stage}")
-            metric_attr(outputs, targets)
-            self.log(f"{stage}_{metric}", metric_attr, on_step=False, on_epoch=True)
+        self.log_stage("valid", outputs, targets)
         return loss
 
     def test_step(self, batch, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
@@ -92,11 +119,7 @@ class LSTM(L.LightningModule):
 
         loss = torch.nn.functional.cross_entropy(outputs, targets, weight=self.loss_weight)
 
-        stage = "test"
-        for metric in self.metric_config.keys():
-            metric_attr = getattr(self, f"{metric}_{stage}")
-            metric_attr(outputs, targets)
-            self.log(f"{stage}_{metric}", metric_attr, on_step=False, on_epoch=True)
+        self.log_stage("test", outputs, targets)
         return loss
 
     def configure_optimizers(self) -> OptimizerLRScheduler:

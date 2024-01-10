@@ -22,7 +22,9 @@ class Baseline(L.LightningModule):
         self.lr = lr
         self.backbone_lr = backbone_lr
         self.weight_decay = weight_decay
-        self.loss_weight = nn.Parameter(torch.tensor(loss_weight)) if loss_weight is not None else None
+        self.register_buffer("loss_weight",
+             torch.tensor(loss_weight) if loss_weight is not None else torch.ones(self.num_classes)
+         )
         self.num_features = 576
         self.num_classes = num_classes
 
