@@ -88,13 +88,21 @@ def create_dataset(data_path, annotation_path, sample_length):
         ann_by_vid_list[vid] = labels
 
         N = len(labels)
-        for idx in range(0, N // sample_length, sample_length):
-            dataset.append({
-                'video': video_path,
-                'frame_indices': np.linspace(idx, idx+sample_length, sample_length).astype(np.uint8),
-                'frame_number': sample_length,
-                'labels': labels[idx:idx+sample_length]
-            })
+        for idx in range(0, N, sample_length):
+            if idx+sample_length >= N:
+                dataset.append({
+                    'video': video_path,
+                    'frame_indices': np.linspace(idx, idx + sample_length, sample_length).astype(np.uint8),
+                    'frame_number': sample_length,
+                    'labels': labels[N-sample_length-1:]
+                })
+            else:
+                dataset.append({
+                    'video': video_path,
+                    'frame_indices': np.linspace(idx, idx+sample_length, sample_length).astype(np.uint8),
+                    'frame_number': sample_length,
+                    'labels': labels[idx:idx+sample_length]
+                })
 
     return dataset
 
