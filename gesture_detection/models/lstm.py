@@ -20,14 +20,15 @@ class LSTM(L.LightningModule):
             num_classes: int,
             lr: float = 0.01, backbone_lr: float = 0.001,
             weight_decay: float = 0.0,
-            loss_weight: list[float] | None = None
+            loss_weight: list[float] | None = None,
+            sample_length: int = 32
     ):
         super().__init__()
         self.lr = lr
         self.backbone_lr = backbone_lr
         self.weight_decay = weight_decay
         self.register_buffer("loss_weight",
-             torch.tensor(loss_weight) if loss_weight is not None else torch.ones(self.num_classes)
+             torch.tensor(loss_weight) if loss_weight is not None else torch.ones(num_classes)
          )
         # self.num_features = 960  # MBv3-L
         self.num_features = 576  # MBv3-S
@@ -44,7 +45,7 @@ class LSTM(L.LightningModule):
         self.metric_config = {
             "acc": (Accuracy, {"task": "multiclass", "num_classes": num_classes}),
             "f1": (F1Score, {"task": "multiclass", "num_classes": num_classes}),
-            "sc": (SequenceMetric, {"num_steps": 32}),
+            "sc": (SequenceMetric, {"num_steps": sample_length}),
             "cm": (ConfusionMatrix, {"task": "multiclass", "num_classes": num_classes})
         }
 
