@@ -27,7 +27,7 @@ def pil_loader(path):
     with open(path, 'rb') as f:
         with Image.open(f) as img:
             img = img.convert('RGB')
-            img = np.array(img).astype(np.float32) / 255
+            img = np.array(img)
             return img
 
 
