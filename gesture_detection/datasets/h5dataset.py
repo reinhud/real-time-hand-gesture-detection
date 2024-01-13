@@ -1,21 +1,47 @@
-import csv
-import albumentations as A
-from typing import Union, List, Tuple
-
-import h5py
 import argparse
+import csv
+from io import BytesIO
 from pathlib import Path
+from typing import Union, List, Tuple, Dict
 
+import albumentations as A
+import cv2
+import h5py
+import lightning as L
 import numpy as np
 import torch.utils.data
 import torchvision
-import lightning as L
 from PIL import Image
-from io import BytesIO
-
-from lightning_utilities.core.rank_zero import rank_zero_only
 
 from gesture_detection.utility.find_num_worker_default import find_num_worker_default
+
+MAP_NVGESTURE_LABELS = {
+    0: 15,
+    1: 16,
+    2: 17,
+    3: 18,
+    4: 19,
+    5: 20,
+    6: 21,
+    7: 22,
+    8: 23,
+    9: 24,
+    10: 25,
+    11: 26,
+    12: 27,
+    13: 28,
+    14: 29,
+    15: 30,
+    16: 31,
+    17: 32,
+    18: 33,
+    19: 34,
+    20: 35,
+    21: 36,
+    22: 37,
+    23: 38,
+    24: 39,
+}
 
 
 def load_csv(path: Path):
@@ -130,6 +156,120 @@ def convert_ipnhand(dataset_root: Path, destination_root: Path):
 
             h5_frames.create_dataset(str(i), dtype=h5py.opaque_dtype(bbytes.dtype), data=np.void(bbytes))
     print("")
+
+
+def load_split_nvgesture(file_with_split: Path):
+    list_split = []
+    with open(file_with_split, 'rb') as f:
+        dict_name = file_with_split.stem
+        dict_name = dict_name[:dict_name.find('_')]
+
+        for line in f:
+            params = line.decode("utf-8").split(' ')
+            params_dictionary = dict()
+
+            params_dictionary['dataset'] = dict_name
+
+            path = params[0].split(':')[1]
+            for param in params[1:]:
+                parsed = param.split(':')
+                key = parsed[0]
+                if key == 'label':
+                    # make label start from 0
+                    label = int(parsed[1]) - 1
+                    params_dictionary['label'] = label
+                elif key in ('depth', 'color', 'duo_left'):
+                    # othrwise only sensors format: <sensor name>:<folder>:<start frame>:<end frame>
+                    sensor_name = key
+                    # first store path
+                    params_dictionary[key] = path + '/' + parsed[1]
+                    # store start frame
+                    params_dictionary[key + '_start'] = int(parsed[2])
+
+                    params_dictionary[key + '_end'] = int(parsed[3])
+
+            params_dictionary['duo_right'] = params_dictionary['duo_left'].replace('duo_left', 'duo_right')
+            params_dictionary['duo_right_start'] = params_dictionary['duo_left_start']
+            params_dictionary['duo_right_end'] = params_dictionary['duo_left_end']
+
+            params_dictionary['duo_disparity'] = params_dictionary['duo_left'].replace('duo_left', 'duo_disparity')
+            params_dictionary['duo_disparity_start'] = params_dictionary['duo_left_start']
+            params_dictionary['duo_disparity_end'] = params_dictionary['duo_left_end']
+
+            list_split.append(params_dictionary)
+
+    return list_split
+
+
+def extract_nvgesture_video(
+        dataset_root: Path, destination_root: Path,
+        config: Dict,
+        sensor: str,
+        image_width: int = 320,
+        image_height: int = 240,
+):
+    path = dataset_root / f"{config[sensor]}.avi"
+    start_frame = config[sensor + '_start']
+    end_frame = config[sensor + '_end']
+    label = config['label']
+
+    frames_to_load = range(start_frame, end_frame)
+
+    cap = cv2.VideoCapture(str(path))
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    labels = np.zeros((total_frames))
+    labels[start_frame:end_frame] = MAP_NVGESTURE_LABELS[label]
+
+    vid = "_".join(config[sensor].split("/")[2:4])
+    h5f = h5py.File(destination_root / f"{vid}.hdf5", "w")
+    h5f.create_dataset("label", dtype=int, data=labels)
+
+    h5_frames = h5f.create_group("frame")
+
+    # cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+    for i, frameIndx in enumerate(frames_to_load):
+        ret, frame = cap.read()
+        if ret:
+            frame = cv2.resize(frame, (image_width, image_height))
+            if sensor != "color":
+                frame = frame[..., 0]
+                frame = frame[..., np.newaxis]
+
+            ret, buffer = cv2.imencode(".jpg", frame)
+            buffer = BytesIO(buffer)
+            bbytes = np.void(buffer.getbuffer().tobytes())
+
+            h5_frames.create_dataset(str(i), dtype=h5py.opaque_dtype(bbytes.dtype), data=np.void(bbytes))
+        else:
+            raise ValueError("could not read frame")
+
+    cap.release()
+
+    return vid, total_frames
+
+
+def convert_nvgesture(dataset_root: Path, destination_root: Path):
+    train_list = load_split_nvgesture(dataset_root / "nvgesture_train_correct_cvpr2016_v2.lst")
+    test_list = load_split_nvgesture(dataset_root / "nvgesture_test_correct_cvpr2016_v2.lst")
+    sensors = ["color", "depth", "duo_left", "duo_right", "duo_disparity"]
+
+    h5info = h5py.File(destination_root / "nvgesture.hdf5", "w")
+    h5info.create_dataset("num_classes", data=25)
+
+    sensor = sensors[0]
+    train_videos = []
+    for config in train_list:
+        vid, length = extract_nvgesture_video(dataset_root, destination_root, config, sensor)
+        train_videos.append((bytes(vid, "utf-8"), length))
+
+    h5info.create_dataset("train_videos", data=train_videos)
+
+    test_videos = []
+    for config in train_list:
+        vid, length = extract_nvgesture_video(dataset_root, destination_root, config, sensor)
+        test_videos.append((bytes(vid, "utf-8"), length))
+
+    h5info.create_dataset("test_videos", data=test_videos)
 
 
 class H5Dataset(torch.utils.data.Dataset):
@@ -274,13 +414,18 @@ class H5DataModule(L.LightningDataModule):
 def main():
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--ipn", type=Path)
+    argparser.add_argument("--nvg", type=Path)
     argparser.add_argument("--h5", type=Path)
     argparser.add_argument("--convert", action="store_true")
     argparser.add_argument("--info", action="store_true")
     argparser.add_argument("--infofile", type=Path)
     args = argparser.parse_args()
+
     if args.convert:
-        convert_ipnhand(args.ipn, args.h5)
+        if args.ipn is not None and args.h5 is not None:
+            convert_ipnhand(args.ipn, args.h5)
+        if args.nvg is not None and args.h5 is not None:
+            convert_nvgesture(args.nvg, args.h5)
     if args.info:
         info = load_info(args.infofile)
         print(info)
