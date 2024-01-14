@@ -357,10 +357,10 @@ class H5DataModule(L.LightningDataModule):
     def setup(self, stage: str = None):
         # transforms
         transform = A.Compose([
-            #A.RGBShift(0.05, 0.05, 0.05),
-            #A.Rotate(30, crop_border=True),
-            #A.RandomResizedCrop(224, 224, scale=(0.8, 1.0)),
-            A.Resize(224, 224)
+            A.RGBShift(),
+            A.Rotate(30, crop_border=True),
+            A.RandomResizedCrop(224, 224, scale=(0.8, 1.0)),
+            #A.Resize(224, 224)
         ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)})
 
         # split dataset

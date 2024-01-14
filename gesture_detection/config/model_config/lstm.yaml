@@ -10,7 +10,7 @@ trainer:
     - class_path: lightning.pytorch.callbacks.DeviceStatsMonitor
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
-        every_n_epochs: 5
+        every_n_epochs: 3
         save_top_k: -1
   fast_dev_run: false
   max_epochs: 100
@@ -22,7 +22,7 @@ trainer:
   limit_val_batches: null
   limit_test_batches: null
   limit_predict_batches: null
-  overfit_batches: 4
+  overfit_batches: 0
   val_check_interval: null
   check_val_every_n_epoch: 1
   num_sanity_val_steps: 2
