@@ -10,8 +10,8 @@ trainer:
     - class_path: lightning.pytorch.callbacks.DeviceStatsMonitor
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
-        every_n_epochs: 5
-        save_last: true
+        every_n_epochs: 3
+        save_top_k: -1
   fast_dev_run: false
   max_epochs: 100
   min_epochs: null
@@ -48,13 +48,17 @@ model:
   class_path: gesture_detection.models.baseline.Baseline
   init_args:
     num_classes: 14
-    lr: 0.003
-    backbone_lr: 0.003
-    loss_weight: [0.7698, 0.7847, 0.8243, 0.9678, 0.9505, 0.9653, 0.9604, 0.9678, 0.9653, 0.9752, 0.9629, 0.9752, 0.9752, 0.9554]
+    lr: 0.0003
+    backbone_lr: 0.0003
+    loss_weight: [0.005497871127067632, 0.005230585225181317, 0.005126425904125884, 0.10340130570854822, 0.09700150965171261, 0.09328270177524553, 0.08832441281487445, 0.08751023991246307, 0.09075364560738511, 0.07649920906482488, 0.08538135092085873, 0.0831799788308998, 0.08882567875154909, 0.08998508470526367]
+    sample_length: 8
+    weight_decay: 0.0003
+    label_smoothing: 0.01
 data:
-  class_path: gesture_detection.datasets.ipn.IPNDataModule
+  class_path: gesture_detection.datasets.h5dataset.H5DataModule
   init_args:
-    data_dir: data/ipnhand
+    dataset_root: "data/h5dataset"
+    dataset_info_filename: "ipnhand.hdf5"
     batch_size: 64
     sample_length: 8
     num_workers: 8
