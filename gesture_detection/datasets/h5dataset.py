@@ -315,6 +315,9 @@ class H5Dataset(torch.utils.data.Dataset):
             clip_dict = self.transform(**clip_dict)
             clip = [clip_dict[f"image{i}"] for i in range(self.sample_length)]
         clip = [torchvision.transforms.functional.to_tensor(img) for img in clip]
+        clip = [torchvision.transforms.functional.normalize(
+            img, torch.tensor([0.485, 0.456, 0.406]), torch.tensor([0.229, 0.224, 0.225]), False
+        ) for img in clip]
 
         image_dimension = clip[0].shape[-2:]
         clip = torch.cat(clip, 0).view((self.sample_length, -1) + image_dimension)
@@ -362,10 +365,19 @@ class H5DataModule(L.LightningDataModule):
     def setup(self, stage: str = None):
         # transforms
         transform = A.Compose([
-            A.RGBShift(),
-            A.Rotate(30, crop_border=True),
-            A.RandomResizedCrop(224, 224, scale=(0.8, 1.0)),
-            #A.Resize(224, 224)
+            A.OneOrOther(
+                A.RGBShift(),
+                A.ColorJitter()
+            ),
+            A.Blur(),
+            A.GaussNoise(),
+            A.OneOf([
+                A.Compose([
+                    A.Rotate(30, crop_border=False, p=1.0),
+                    A.Resize(224, 224)
+                ]),
+                A.RandomResizedCrop(224, 224, scale=(0.8, 1.0))
+            ], p=1.0)
         ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)})
 
         # split dataset
@@ -388,6 +400,9 @@ class H5DataModule(L.LightningDataModule):
                 self.dataset_root,
                 self.dataset_info["test_videos"],
                 self.sample_length,
+                transform=A.Compose([
+                    A.Resize(224, 224)
+                ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)})
             )
 
     def train_dataloader(self):
