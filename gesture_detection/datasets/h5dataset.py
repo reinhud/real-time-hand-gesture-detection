@@ -66,7 +66,7 @@ def pil_loader(buffer: BytesIO):
         return img
 
 
-def load_video(h5video: Path, indices=Union[None, np.ndarray]):
+def load_video(h5video: Path, indices: Union[None, np.ndarray] = None):
     h5f = h5py.File(h5video, swmr=True)
     labels = np.array(h5f["label"])
     h5frames = h5f["frame"]
@@ -92,10 +92,12 @@ def load_info(h5info: Path):
 
     num_classes = int(np.array(h5info["num_classes"]))
     train_videos = [(x[0].decode("utf-8"), int(x[1])) for x in np.array(h5info["train_videos"])]
+    valid_videos = [(x[0].decode("utf-8"), int(x[1])) for x in np.array(h5info["valid_videos"])]
     test_videos = [(x[0].decode("utf-8"), int(x[1])) for x in np.array(h5info["test_videos"])]
     return {
         "num_classes": num_classes,
         "train_videos": train_videos,
+        "valid_videos": valid_videos,
         "test_videos": test_videos
     }
 
@@ -121,6 +123,11 @@ def convert_ipnhand(dataset_root: Path, destination_root: Path):
         reader = csv.DictReader(f, fieldnames=["video", "length"], delimiter="\t")
         data = [(x["video"], x["length"]) for x in list(reader)]
         h5info.create_dataset("train_videos", data=data)
+
+    with open(dataset_root / "Video_ValidList.txt", "r") as f:
+        reader = csv.DictReader(f, fieldnames=["video", "length"], delimiter="\t")
+        data = [(x["video"], x["length"]) for x in list(reader)]
+        h5info.create_dataset("valid_videos", data=data)
 
     with open(dataset_root / "Video_TestList.txt", "r") as f:
         reader = csv.DictReader(f, fieldnames=["video", "length"], delimiter="\t")
@@ -331,7 +338,6 @@ class H5DataModule(L.LightningDataModule):
             batch_size: int = 32,
             num_workers: int | None = None,
             pin_memory: bool = False,
-            train_ratio: float = 0.9,
             seed: int = 42,
             sample_length: int = 32,
     ):
@@ -343,7 +349,6 @@ class H5DataModule(L.LightningDataModule):
         self.num_workers = find_num_worker_default(num_workers)
         self.pin_memory = pin_memory
         self.seed = seed
-        self.train_ratio = train_ratio
         self.sample_length = sample_length
         self.save_hyperparameters()
 
@@ -365,17 +370,17 @@ class H5DataModule(L.LightningDataModule):
 
         # split dataset
         if stage == "fit" or stage is None:
-            dataset = H5Dataset(
+            self.train_dataset = H5Dataset(
                 self.dataset_root,
                 self.dataset_info["train_videos"],
                 self.sample_length,
                 transform=transform
             )
-            num_train = int(len(dataset) * self.train_ratio)
-            self.train_dataset, self.valid_dataset = torch.utils.data.random_split(
-                dataset=dataset,
-                lengths=[num_train, len(dataset) - num_train],
-                generator=torch.Generator().manual_seed(self.seed)
+            self.valid_dataset = H5Dataset(
+                self.dataset_root,
+                self.dataset_info["valid_videos"],
+                self.sample_length,
+                transform=transform
             )
 
         if stage == "test" or stage is None:
