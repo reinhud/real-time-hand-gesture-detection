@@ -1,6 +1,6 @@
 trainer:
   accelerator: gpu
-  devices: [7]
+  devices: 1
   accumulate_grad_batches: 2
 model:
   class_path: gesture_detection.models.lstm.LSTM

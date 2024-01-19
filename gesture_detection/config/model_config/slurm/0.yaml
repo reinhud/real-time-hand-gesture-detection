@@ -1,6 +1,6 @@
 trainer:
   accelerator: gpu
-  devices: [0]
+  devices: 1
 model:
   class_path: gesture_detection.models.lstm.LSTM
   init_args:
