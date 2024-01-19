@@ -349,7 +349,6 @@ class H5DataModule(L.LightningDataModule):
         self.save_hyperparameters()
 
         self.train_dataset = None
-        self.valid_dataset = None
         self.test_dataset = None
 
     def prepare_data(self):

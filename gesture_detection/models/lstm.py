@@ -21,7 +21,8 @@ class LSTM(L.LightningModule):
             lr: float = 0.01, backbone_lr: float = 0.001,
             weight_decay: float = 0.0,
             loss_weight: list[float] | None = None,
-            sample_length: int = 32
+            sample_length: int = 32,
+            small: bool = True
     ):
         super().__init__()
         self.lr = lr
@@ -30,18 +31,20 @@ class LSTM(L.LightningModule):
         self.register_buffer("loss_weight",
              torch.tensor(loss_weight) if loss_weight is not None else torch.ones(num_classes)
          )
-        # self.num_features = 960  # MBv3-L
-        self.num_features = 576  # MBv3-S
+        self.small = small
         self.num_classes = num_classes
         self.save_hyperparameters()
 
-        self.backbone = torchvision.models.mobilenet_v3_small(torchvision.models.MobileNet_V3_Small_Weights.DEFAULT)
-        #self.backbone.features = nn.Sequential(
-        #    *[module for idx, module in enumerate(self.backbone.features.children()) if idx < 14]
-        #)
-        self.backbone.classifier = nn.Identity()
-
-        self.sequence_model = nn.LSTM(self.num_features, self.num_classes, 1, batch_first=True, dropout=0.05)
+        if self.small:
+            self.num_features = 576  # MBv3-S
+            self.backbone = torchvision.models.mobilenet_v3_small(torchvision.models.MobileNet_V3_Small_Weights.DEFAULT)
+            self.backbone.classifier = nn.Identity()
+            self.sequence_model = nn.LSTM(self.num_features, self.num_classes, 1, batch_first=True)
+        else:
+            self.num_features = 960  # MBv3-L
+            self.backbone = torchvision.models.mobilenet_v3_large(torchvision.models.MobileNet_V3_Large_Weights.DEFAULT)
+            self.backbone.classifier = nn.Identity()
+            self.sequence_model = nn.LSTM(self.num_features, self.num_classes, 1, batch_first=True)
 
         self.metric_config = {
             "acc": (Accuracy, {"task": "multiclass", "num_classes": num_classes}),
