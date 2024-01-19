@@ -8,5 +8,7 @@ model:
     lr: 0.0001
     backbone_lr: 0.0001
     weight_decay: 0.0
-    batch_size: 32
     small: False
+data:
+  init_args:
+    batch_size: 32
