@@ -33,6 +33,7 @@ class LSTM(L.LightningModule):
         # self.num_features = 960  # MBv3-L
         self.num_features = 576  # MBv3-S
         self.num_classes = num_classes
+        self.save_hyperparameters()
 
         self.backbone = torchvision.models.mobilenet_v3_small(torchvision.models.MobileNet_V3_Small_Weights.DEFAULT)
         #self.backbone.features = nn.Sequential(

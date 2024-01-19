@@ -1,0 +1,9 @@
+trainer:
+  accelerator: gpu
+  devices: [4]
+model:
+  class_path: gesture_detection.models.lstm.LSTM
+  init_args:
+    lr: 0.1
+    backbone_lr: 0.1
+    weight_decay: 0.0001

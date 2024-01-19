@@ -92,12 +92,10 @@ def load_info(h5info: Path):
 
     num_classes = int(np.array(h5info["num_classes"]))
     train_videos = [(x[0].decode("utf-8"), int(x[1])) for x in np.array(h5info["train_videos"])]
-    valid_videos = [(x[0].decode("utf-8"), int(x[1])) for x in np.array(h5info["valid_videos"])]
     test_videos = [(x[0].decode("utf-8"), int(x[1])) for x in np.array(h5info["test_videos"])]
     return {
         "num_classes": num_classes,
         "train_videos": train_videos,
-        "valid_videos": valid_videos,
         "test_videos": test_videos
     }
 
@@ -123,11 +121,6 @@ def convert_ipnhand(dataset_root: Path, destination_root: Path):
         reader = csv.DictReader(f, fieldnames=["video", "length"], delimiter="\t")
         data = [(x["video"], x["length"]) for x in list(reader)]
         h5info.create_dataset("train_videos", data=data)
-
-    with open(dataset_root / "Video_ValidList.txt", "r") as f:
-        reader = csv.DictReader(f, fieldnames=["video", "length"], delimiter="\t")
-        data = [(x["video"], x["length"]) for x in list(reader)]
-        h5info.create_dataset("valid_videos", data=data)
 
     with open(dataset_root / "Video_TestList.txt", "r") as f:
         reader = csv.DictReader(f, fieldnames=["video", "length"], delimiter="\t")
@@ -364,6 +357,7 @@ class H5DataModule(L.LightningDataModule):
 
     def setup(self, stage: str = None):
         # transforms
+        sample_size = 224
         transform = A.Compose([
             A.OneOrOther(
                 A.RGBShift(),
@@ -374,9 +368,9 @@ class H5DataModule(L.LightningDataModule):
             A.OneOf([
                 A.Compose([
                     A.Rotate(30, crop_border=False, p=1.0),
-                    A.Resize(224, 224)
+                    A.Resize(sample_size, sample_size)
                 ]),
-                A.RandomResizedCrop(224, 224, scale=(0.8, 1.0))
+                A.RandomResizedCrop(sample_size, sample_size, scale=(0.8, 1.0))
             ], p=1.0)
         ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)})
 
@@ -388,9 +382,9 @@ class H5DataModule(L.LightningDataModule):
                 self.sample_length,
                 transform=transform
             )
-            self.valid_dataset = H5Dataset(
+            self.test_dataset = H5Dataset(
                 self.dataset_root,
-                self.dataset_info["valid_videos"],
+                self.dataset_info["test_videos"],
                 self.sample_length,
                 transform=transform
             )
@@ -401,7 +395,7 @@ class H5DataModule(L.LightningDataModule):
                 self.dataset_info["test_videos"],
                 self.sample_length,
                 transform=A.Compose([
-                    A.Resize(224, 224)
+                    A.Resize(sample_size, sample_size)
                 ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)})
             )
 
@@ -416,7 +410,7 @@ class H5DataModule(L.LightningDataModule):
 
     def val_dataloader(self):
         return torch.utils.data.DataLoader(
-            self.valid_dataset,
+            self.test_dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
