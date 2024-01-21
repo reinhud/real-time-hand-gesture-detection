@@ -22,6 +22,7 @@ class LSTM(L.LightningModule):
             weight_decay: float = 0.0,
             loss_weight: list[float] | None = None,
             sample_length: int = 32,
+            label_smoothing: float = 0.0,
             small: bool = True
     ):
         super().__init__()
@@ -33,6 +34,7 @@ class LSTM(L.LightningModule):
          )
         self.small = small
         self.num_classes = num_classes
+        self.label_smoothing = label_smoothing
         self.save_hyperparameters()
 
         if self.small:
@@ -79,7 +81,9 @@ class LSTM(L.LightningModule):
         outputs = self(inputs).flatten(0, 1)  # [batch_size * sample_length, num_classes
         targets = targets.flatten(0, 1)
 
-        loss = torch.nn.functional.cross_entropy(outputs, targets, weight=self.loss_weight)
+        loss = torch.nn.functional.cross_entropy(
+            outputs, targets, weight=self.loss_weight, label_smoothing=self.label_smoothing
+        )
 
         self.log("train_loss", loss, on_step=True, on_epoch=True)
         self.log_stage("train", outputs, targets)
@@ -111,7 +115,9 @@ class LSTM(L.LightningModule):
         outputs = self(inputs).flatten(0, 1)  # [batch_size * sample_length, num_classes
         targets = targets.flatten(0, 1)
 
-        loss = torch.nn.functional.cross_entropy(outputs, targets, weight=self.loss_weight)
+        loss = torch.nn.functional.cross_entropy(
+            outputs, targets, weight=self.loss_weight, label_smoothing=self.label_smoothing
+        )
 
         self.log("valid_loss", loss, on_step=True, on_epoch=True)
         self.log_stage("valid", outputs, targets)
@@ -122,7 +128,9 @@ class LSTM(L.LightningModule):
         outputs = self(inputs).flatten(0, 1)  # [batch_size * sample_length, num_classes
         targets = targets.flatten(0, 1)
 
-        loss = torch.nn.functional.cross_entropy(outputs, targets, weight=self.loss_weight)
+        loss = torch.nn.functional.cross_entropy(
+            outputs, targets, weight=self.loss_weight, label_smoothing=self.label_smoothing
+        )
 
         self.log_stage("test", outputs, targets)
         return loss
