@@ -96,8 +96,8 @@ class LSTM(L.LightningModule):
             self.sequence_model = nn.LSTM(self.num_features, self.num_classes, 1, batch_first=True)
 
         self.metric_config = {
-            "acc": (Accuracy, {"task": "multiclass", "num_classes": num_classes}),
-            "f1": (F1Score, {"task": "multiclass", "num_classes": num_classes}),
+            "acc": (Accuracy, {"task": "multiclass", "num_classes": num_classes, "average": "macro"}),
+            "f1": (F1Score, {"task": "multiclass", "num_classes": num_classes, "average": "macro"}),
             "sc": (SequenceMetric, {"num_steps": sample_length}),
             "cm": (ConfusionMatrix, {"task": "multiclass", "num_classes": num_classes})
         }
