@@ -6,57 +6,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
-from tensorboardX import SummaryWriter
 from torchmetrics import F1Score, Accuracy, ConfusionMatrix
 from torchmetrics.classification import MulticlassConfusionMatrix
 
 from gesture_detection.utility.SequenceMetric import SequenceMetric
 from gesture_detection.utility.plot_confusion_matrix import plot_confusion_matrix
-
-
-class SummaryWriterLogger:
-
-    def __init__(self):
-        self._writer: SummaryWriter = None
-
-    @property
-    def writer(self):
-        return self._writer
-
-    @writer.setter
-    def writer(self, value):
-        self._writer = value
-
-
-    def add_scalar(self, metric_name, value, step):
-        if self._writer is None:
-            print("Writer is not set yet")
-            return
-        self._writer.add_scalar(
-            metric_name,
-            value,
-            step,
-        )
-        self._writer.flush()
-
-    def add_figure(self, tag, fig, step):
-        if self._writer is None:
-            print("Writer is not set yet")
-            return
-        self._writer.add_figure(
-            tag, fig, step
-        )
-        self._writer.flush()
-
-    def add_hparams(self, hparams):
-        if self._writer is None:
-            print("Writer is not set yet")
-            return
-        self._writer.add_hparams(hparams, {})
-        self._writer.add_text(
-            "hparams", str(hparams)
-        )
-        self._writer.flush()
 
 
 class LSTM(L.LightningModule):
@@ -75,12 +29,11 @@ class LSTM(L.LightningModule):
         self.backbone_lr = backbone_lr
         self.weight_decay = weight_decay
         self.register_buffer("loss_weight",
-                             torch.tensor(loss_weight) if loss_weight is not None else torch.ones(num_classes)
-                             )
+             torch.tensor(loss_weight) if loss_weight is not None else torch.ones(num_classes)
+         )
         self.small = small
         self.num_classes = num_classes
-        #self.save_hyperparameters()
-        self.summary_writer = SummaryWriterLogger()
+        self.save_hyperparameters()
 
         if self.small:
             self.num_features = 576  # MBv3-S
@@ -111,24 +64,7 @@ class LSTM(L.LightningModule):
             metric_attr.update(outputs, targets)
 
             if not isinstance(metric_attr, Union[SequenceMetric, MulticlassConfusionMatrix]):
-                if self.trainer.is_last_batch:
-                    self.summary_writer.add_scalar(
-                        f"{stage}_{metric}",
-                        metric_attr.compute(),
-                        self.global_step,
-                    )
-                    metric_attr.reset()
-                # self.log(f"{stage}_{metric}", metric_attr, on_step=False, on_epoch=True, logger=True)
-
-    def on_fit_start(self) -> None:
-        self.summary_writer.writer = self.logger.experiment
-        self.summary_writer.add_hparams({
-            "lr": self.lr,
-            "backbone_lr": self.backbone_lr,
-            "weight_decay": self.weight_decay,
-            "small": self.small,
-            "label_smoothing": 0.0
-        })
+                self.log(f"{stage}_{metric}", metric_attr, on_step=False, on_epoch=True)
 
     def forward(self, x):
         batch_size, time_steps, channels, height, width = x.shape
@@ -145,12 +81,7 @@ class LSTM(L.LightningModule):
 
         loss = torch.nn.functional.cross_entropy(outputs, targets, weight=self.loss_weight)
 
-        # self.log("train_loss", loss, on_step=True, on_epoch=True, logger=True)
-        self.summary_writer.add_scalar(
-            "train_loss_step",
-            loss,
-            self.global_step,
-        )
+        self.log("train_loss", loss, on_step=True, on_epoch=True)
         self.log_stage("train", outputs, targets)
         return loss
 
@@ -160,10 +91,10 @@ class LSTM(L.LightningModule):
 
             if isinstance(metric_attr, SequenceMetric):
                 fig, ax = metric_attr.plot()
-                self.summary_writer.add_figure(f"{stage}_{metric}", fig, self.global_step)
+                self.logger.experiment.add_figure(f"{stage}_{metric}", fig, self.global_step)
             elif isinstance(metric_attr, MulticlassConfusionMatrix):
                 fig, ax = plot_confusion_matrix(metric_attr.compute())
-                self.summary_writer.add_figure(f"{stage}_{metric}", fig, self.global_step)
+                self.logger.experiment.add_figure(f"{stage}_{metric}", fig, self.global_step)
             metric_attr.reset()
 
     def on_train_epoch_end(self) -> None:
@@ -182,12 +113,7 @@ class LSTM(L.LightningModule):
 
         loss = torch.nn.functional.cross_entropy(outputs, targets, weight=self.loss_weight)
 
-        # self.log("valid_loss", loss, on_step=True, on_epoch=True, logger=True)
-        self.summary_writer.add_scalar(
-            "valid_loss_step",
-            loss,
-            self.global_step,
-        )
+        self.log("valid_loss", loss, on_step=True, on_epoch=True)
         self.log_stage("valid", outputs, targets)
         return loss
 
@@ -203,11 +129,10 @@ class LSTM(L.LightningModule):
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
         opt = torch.optim.Adam([
-            {"params": self.backbone.parameters(), "lr": self.backbone_lr},
-            {"params": self.sequence_model.parameters()},
-        ], lr=self.lr, weight_decay=self.weight_decay)
+                {"params": self.backbone.parameters(), "lr": self.backbone_lr},
+                {"params": self.sequence_model.parameters()},
+            ], lr=self.lr, weight_decay=self.weight_decay)
         return opt
-
 
 def main():
     model = LSTM(14)
