@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import torchvision
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from tensorboardX import SummaryWriter
-from torchmetrics import F1Score, Accuracy, ConfusionMatrix
+from torchmetrics import F1Score, Accuracy, ConfusionMatrix, MeanMetric
 from torchmetrics.classification import MulticlassConfusionMatrix
 
 from gesture_detection.utility.SequenceMetric import SequenceMetric
@@ -106,6 +106,8 @@ class LSTM(L.LightningModule):
             for metric in self.metric_config.keys():
                 metric_cls, metric_params = self.metric_config[metric]
                 setattr(self, f"{metric}_{stage}", metric_cls(**metric_params))
+        self.train_loss_epoch = MeanMetric()
+        self.valid_loss_epoch = MeanMetric()
 
     def log_stage(self, stage: str, outputs: torch.Tensor, targets: torch.Tensor, step):
         for metric in self.metric_config.keys():
@@ -148,6 +150,7 @@ class LSTM(L.LightningModule):
             loss,
             self.global_step,
         )
+        self.train_loss_epoch.update(loss)
         self.log_stage("train", outputs, targets, self.global_step)
         return loss
 
@@ -168,6 +171,14 @@ class LSTM(L.LightningModule):
                     step,
                 )
             metric_attr.reset()
+        if hasattr(self, f"{stage}_loss_epoch"):
+            loss_fun = getattr(self, f"{stage}_loss_epoch")
+            self.summary_writer.add_scalar(
+                f"{stage}_loss_epoch",
+                loss_fun.compute(),
+                step,
+            )
+            loss_fun.reset()
 
     def on_train_epoch_end(self) -> None:
         self.metric_reset("train", self.global_step)
@@ -193,6 +204,7 @@ class LSTM(L.LightningModule):
             loss,
             self.current_epoch * self.trainer.num_val_batches[0] + batch_idx,
         )
+        self.valid_loss_epoch.update(loss)
         self.log_stage("valid", outputs, targets, self.current_epoch * self.trainer.num_val_batches[0] + batch_idx)
         return loss
 
@@ -204,8 +216,7 @@ class LSTM(L.LightningModule):
         loss = torch.nn.functional.cross_entropy(
             outputs, targets, weight=self.loss_weight, label_smoothing=self.label_smoothing
         )
-
-        self.log_stage("test", outputs, targets, self.current_epoch * self.trainer.num_test_batches + batch_idx)
+        self.log_stage("test", outputs, targets, self.current_epoch * self.trainer.num_test_batches[0] + batch_idx)
         return loss
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
