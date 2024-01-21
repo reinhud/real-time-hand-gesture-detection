@@ -10,7 +10,8 @@ def main():
     # os.environ["CUDA_VISIBLE_DEVICES"] = slurm_id
     # print("CUDA_VISIBLE_DEVICES:", os.environ["CUDA_VISIBLE_DEVICES"])
     # os.environ["LOCAL_RANK"] = "0"
-    del os.environ["SLURM_PROCID"]
+    if "SLURM_PROCID" in os.environ.keys():
+        del os.environ["SLURM_PROCID"]
     root_config_file = "gesture_detection/config/model_config/lstm.yaml"
     specific_config_file = f"gesture_detection/config/model_config/slurm/{slurm_id}.yaml"
     cli = LightningCLI(
@@ -24,6 +25,7 @@ def main():
             "--trainer.logger.init_args.save_dir", "lightning_logs",
             "--trainer.logger.init_args.name", f"job_{slurm_job_id}",
             "--trainer.logger.init_args.version", f"slurm_{slurm_id}",
+            "--trainer.plugins.class_path", "lightning.pytorch.plugins.environments.LightningEnvironment",
         ]
     )
 
