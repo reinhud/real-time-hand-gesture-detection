@@ -385,7 +385,9 @@ class H5DataModule(L.LightningDataModule):
                 self.dataset_root,
                 self.dataset_info["test_videos"],
                 self.sample_length,
-                transform=transform
+                transform=A.Compose([
+                    A.Resize(sample_size, sample_size)
+                ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)})
             )
 
         if stage == "test" or stage is None:
