@@ -1,19 +1,22 @@
 seed_everything: true
 trainer:
   accelerator: gpu
-  strategy: auto
-  devices: [0]
+  strategy:
+    class_path: lightning.pytorch.strategies.SingleDeviceStrategy
+    init_args:
+      device: 0
+  devices: 1
   num_nodes: 1
   precision: null
   logger: null
-  callbacks: 
+  callbacks:
     - class_path: lightning.pytorch.callbacks.DeviceStatsMonitor
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
-        every_n_epochs: 3
+        every_n_epochs: 1
         save_top_k: -1
   fast_dev_run: false
-  max_epochs: 100
+  max_epochs: 50
   min_epochs: null
   max_steps: -1
   min_steps: null
@@ -22,21 +25,21 @@ trainer:
   limit_val_batches: null
   limit_test_batches: null
   limit_predict_batches: null
-  overfit_batches: 0.0
+  overfit_batches: 0
   val_check_interval: null
   check_val_every_n_epoch: 1
   num_sanity_val_steps: 2
-  log_every_n_steps: 50
+  log_every_n_steps: 10
   enable_checkpointing: true
   enable_progress_bar: true
   enable_model_summary: true
-  accumulate_grad_batches: 2
+  accumulate_grad_batches: 1
   gradient_clip_val: null
   gradient_clip_algorithm: norm
   deterministic: null
   benchmark: null
   inference_mode: true
-  use_distributed_sampler: true
+  use_distributed_sampler: false
   profiler: null
   detect_anomaly: false
   barebones: false
@@ -45,21 +48,21 @@ trainer:
   reload_dataloaders_every_n_epochs: 0
   default_root_dir: null
 model:
-  class_path: gesture_detection.models.baseline.Baseline
+  class_path: gesture_detection.models.lstm.LSTM
   init_args:
     num_classes: 14
-    lr: 0.0003
-    backbone_lr: 0.0003
+    lr: 0.01
+    backbone_lr: 0.01
     loss_weight: [0.005497871127067632, 0.005230585225181317, 0.005126425904125884, 0.10340130570854822, 0.09700150965171261, 0.09328270177524553, 0.08832441281487445, 0.08751023991246307, 0.09075364560738511, 0.07649920906482488, 0.08538135092085873, 0.0831799788308998, 0.08882567875154909, 0.08998508470526367]
-    sample_length: 8
-    weight_decay: 0.0003
-    label_smoothing: 0.01
+    weight_decay: 0.0
+    sample_length: 32
+    small: True
 data:
   class_path: gesture_detection.datasets.h5dataset.H5DataModule
   init_args:
     dataset_root: "data/h5dataset"
     dataset_info_filename: "ipnhand.hdf5"
-    batch_size: 64
-    sample_length: 8
+    batch_size: 48
+    sample_length: 32
     num_workers: 8
     pin_memory: true

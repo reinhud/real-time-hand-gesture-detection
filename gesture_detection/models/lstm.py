@@ -13,7 +13,7 @@ from gesture_detection.utility.SequenceMetric import SequenceMetric
 from gesture_detection.utility.plot_confusion_matrix import plot_confusion_matrix
 
 
-class Baseline(L.LightningModule):
+class LSTM(L.LightningModule):
 
     def __init__(
             self,
@@ -22,30 +22,31 @@ class Baseline(L.LightningModule):
             weight_decay: float = 0.0,
             loss_weight: list[float] | None = None,
             sample_length: int = 32,
-            label_smoothing: float = 0.0
+            label_smoothing: float = 0.0,
+            small: bool = True
     ):
         super().__init__()
         self.lr = lr
         self.backbone_lr = backbone_lr
         self.weight_decay = weight_decay
-        self.label_smoothing = label_smoothing
         self.register_buffer("loss_weight",
-                             torch.tensor(loss_weight) if loss_weight is not None else torch.ones(num_classes)
-                             )
-        # self.num_features = 960  # MBv3-L
-        self.num_features = 576  # MBv3-S
+             torch.tensor(loss_weight) if loss_weight is not None else torch.ones(num_classes)
+         )
+        self.small = small
         self.num_classes = num_classes
+        self.label_smoothing = label_smoothing
+        self.save_hyperparameters()
 
-        self.backbone = torchvision.models.mobilenet_v3_small(torchvision.models.MobileNet_V3_Small_Weights.DEFAULT)
-        # self.backbone.features = nn.Sequential(
-        #    *[module for idx, module in enumerate(self.backbone.features.children()) if idx < 14]
-        # )
-        self.backbone.classifier = nn.Identity()
-
-        self.linear1 = nn.Sequential(
-            nn.Dropout(0.5),
-            nn.Linear(self.num_features, self.num_classes)
-        )
+        if self.small:
+            self.num_features = 576  # MBv3-S
+            self.backbone = torchvision.models.mobilenet_v3_small(torchvision.models.MobileNet_V3_Small_Weights.DEFAULT)
+            self.backbone.classifier = nn.Identity()
+            self.sequence_model = nn.LSTM(self.num_features, self.num_classes, 1, batch_first=True)
+        else:
+            self.num_features = 960  # MBv3-L
+            self.backbone = torchvision.models.mobilenet_v3_large(torchvision.models.MobileNet_V3_Large_Weights.DEFAULT)
+            self.backbone.classifier = nn.Identity()
+            self.sequence_model = nn.LSTM(self.num_features, self.num_classes, 1, batch_first=True)
 
         self.metric_config = {
             "acc": (Accuracy, {"task": "multiclass", "num_classes": num_classes}),
@@ -66,6 +67,27 @@ class Baseline(L.LightningModule):
 
             if not isinstance(metric_attr, Union[SequenceMetric, MulticlassConfusionMatrix]):
                 self.log(f"{stage}_{metric}", metric_attr, on_step=False, on_epoch=True)
+
+    def forward(self, x):
+        batch_size, time_steps, channels, height, width = x.shape
+        x = x.flatten(0, 1)
+        x = self.backbone(x)
+        x = x.unflatten(0, (batch_size, time_steps))
+        out, (hn, cn) = self.sequence_model(x)
+        return out
+
+    def training_step(self, batch, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
+        inputs, targets = batch
+        outputs = self(inputs).flatten(0, 1)  # [batch_size * sample_length, num_classes
+        targets = targets.flatten(0, 1)
+
+        loss = torch.nn.functional.cross_entropy(
+            outputs, targets, weight=self.loss_weight, label_smoothing=self.label_smoothing
+        )
+
+        self.log("train_loss", loss, on_step=True, on_epoch=True)
+        self.log_stage("train", outputs, targets)
+        return loss
 
     def metric_reset(self, stage: str):
         for metric in self.metric_config.keys():
@@ -88,33 +110,11 @@ class Baseline(L.LightningModule):
     def on_test_epoch_end(self) -> None:
         self.metric_reset("test")
 
-    def forward(self, x):
-        batch_size, time_steps, channels, height, width = x.shape
-        x = x.flatten(0, 1)
-        x = self.backbone(x)
-        x = self.linear1(x)
-        return x
-
-    def training_step(self, batch, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
-        inputs, targets = batch
-        batch_size, sample_length = inputs.shape[:2]
-        outputs = self(inputs)  # [batch_size * sample_length, num_classes
-
-        targets = targets.flatten(0, 1)
-        loss = torch.nn.functional.cross_entropy(
-            outputs, targets, weight=self.loss_weight, label_smoothing=self.label_smoothing
-        )
-
-        self.log("train_loss", loss, on_step=True, on_epoch=True)
-        self.log_stage("train", outputs, targets)
-        return loss
-
     def validation_step(self, batch, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
         inputs, targets = batch
-        batch_size, sample_length = inputs.shape[:2]
-        outputs = self(inputs)  # [batch_size * sample_length, num_classes
-
+        outputs = self(inputs).flatten(0, 1)  # [batch_size * sample_length, num_classes
         targets = targets.flatten(0, 1)
+
         loss = torch.nn.functional.cross_entropy(
             outputs, targets, weight=self.loss_weight, label_smoothing=self.label_smoothing
         )
@@ -125,9 +125,9 @@ class Baseline(L.LightningModule):
 
     def test_step(self, batch, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
         inputs, targets = batch
-        outputs = self(inputs)  # [batch_size * sample_length, num_classes
-
+        outputs = self(inputs).flatten(0, 1)  # [batch_size * sample_length, num_classes
         targets = targets.flatten(0, 1)
+
         loss = torch.nn.functional.cross_entropy(
             outputs, targets, weight=self.loss_weight, label_smoothing=self.label_smoothing
         )
@@ -138,13 +138,13 @@ class Baseline(L.LightningModule):
     def configure_optimizers(self) -> OptimizerLRScheduler:
         opt = torch.optim.Adam([
                 {"params": self.backbone.parameters(), "lr": self.backbone_lr},
-                {"params": self.linear1.parameters()}
+                {"params": self.sequence_model.parameters()},
             ], lr=self.lr, weight_decay=self.weight_decay)
         return opt
 
 def main():
-    model = Baseline()
-    out = model(torch.rand((1, 5, 3, 160, 160)))
+    model = LSTM(14)
+    out = model(torch.rand((2, 5, 3, 160, 160)))
     preds = F.softmax(out, dim=-1).argmax(dim=-1).squeeze(0).detach().numpy()
     print(f"predicted classes: {preds}")
 
