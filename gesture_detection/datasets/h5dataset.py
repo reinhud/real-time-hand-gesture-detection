@@ -283,7 +283,9 @@ class H5Dataset(torch.utils.data.Dataset):
         self.sample_length = sample_length
 
         self.dataset = []
+        self.video_length = {}
         for (video, length) in videos:
+            self.video_length[video] = length
             for idy in range(0, length, sample_length):
                 if idy + sample_length >= length:
                     self.dataset.append({
@@ -298,7 +300,37 @@ class H5Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         video = self.dataset[index]['video']
-        indices = self.dataset[index]['indices']
+        indices = self.dataset[index]['indices'].copy()
+        length = self.video_length[video]
+
+        if np.random.random() < 0.3:
+            # randomly shift sequences to left or right
+            offset = np.random.randint(0, self.sample_length // 2)
+            if indices.max() + offset < length:
+                indices += offset
+            else:
+                indices -= offset
+        elif np.random.random() < 0.7:
+            # enlarge sequence and drop random indices
+            start = indices.min()
+            stop = indices.max()
+
+            if stop + self.sample_length // 4 < length:
+                indices = np.linspace(
+                    start, stop + self.sample_length // 4, int(self.sample_length * 1.25), dtype=np.uint8
+                )
+            else:
+                indices = np.linspace(
+                    start - self.sample_length // 4, stop, int(self.sample_length * 1.25), dtype=np.uint8
+                )
+
+            keep_indices = torch.randperm(int(self.sample_length * 1.25))[:self.sample_length]
+            indices = indices[keep_indices]
+            indices.sort()
+        else:
+            # draw random indices
+            indices = np.random.choice(indices, size=self.sample_length)
+            indices.sort()
 
         clip, labels = load_video(self.dataset_root / f"{video}.hdf5", indices)
 
