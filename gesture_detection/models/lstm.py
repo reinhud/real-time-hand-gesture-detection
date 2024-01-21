@@ -107,20 +107,10 @@ class LSTM(L.LightningModule):
                 metric_cls, metric_params = self.metric_config[metric]
                 setattr(self, f"{metric}_{stage}", metric_cls(**metric_params))
 
-    def log_stage(self, stage: str, outputs: torch.Tensor, targets: torch.Tensor):
+    def log_stage(self, stage: str, outputs: torch.Tensor, targets: torch.Tensor, step):
         for metric in self.metric_config.keys():
             metric_attr = getattr(self, f"{metric}_{stage}")
             metric_attr.update(outputs, targets)
-
-            if not isinstance(metric_attr, Union[SequenceMetric, MulticlassConfusionMatrix]):
-                if self.trainer.is_last_batch:
-                    self.summary_writer.add_scalar(
-                        f"{stage}_{metric}",
-                        metric_attr.compute(),
-                        self.global_step,
-                    )
-                    metric_attr.reset()
-                # self.log(f"{stage}_{metric}", metric_attr, on_step=False, on_epoch=True, logger=True)
 
     def on_fit_start(self) -> None:
         self.summary_writer.writer = self.logger.experiment
@@ -158,31 +148,37 @@ class LSTM(L.LightningModule):
             loss,
             self.global_step,
         )
-        self.log_stage("train", outputs, targets)
+        self.log_stage("train", outputs, targets, self.global_step)
         return loss
 
-    def metric_reset(self, stage: str):
+    def metric_reset(self, stage: str, step):
         for metric in self.metric_config.keys():
             metric_attr = getattr(self, f"{metric}_{stage}")
 
             if isinstance(metric_attr, SequenceMetric):
                 fig, ax = metric_attr.plot()
-                self.summary_writer.add_figure(f"{stage}_{metric}", fig, self.global_step)
+                self.summary_writer.add_figure(f"{stage}_{metric}", fig, step)
             elif isinstance(metric_attr, MulticlassConfusionMatrix):
                 fig, ax = plot_confusion_matrix(metric_attr.compute())
-                self.summary_writer.add_figure(f"{stage}_{metric}", fig, self.global_step)
+                self.summary_writer.add_figure(f"{stage}_{metric}", fig, step)
+            else:
+                self.summary_writer.add_scalar(
+                    f"{stage}_{metric}",
+                    metric_attr.compute(),
+                    step,
+                )
             metric_attr.reset()
 
     def on_train_epoch_end(self) -> None:
-        self.metric_reset("train")
+        self.metric_reset("train", self.global_step)
 
     def on_validation_epoch_end(self) -> None:
-        self.metric_reset("valid")
+        self.metric_reset("valid", (self.current_epoch + 1) * self.trainer.num_val_batches[0])
 
     def on_test_epoch_end(self) -> None:
-        self.metric_reset("test")
+        self.metric_reset("test", self.global_step, (self.current_epoch + 1) * self.trainer.num_test_batches[0])
 
-    def validation_step(self, batch, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
+    def validation_step(self, batch, batch_idx, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
         inputs, targets = batch
         outputs = self(inputs).flatten(0, 1)  # [batch_size * sample_length, num_classes
         targets = targets.flatten(0, 1)
@@ -195,12 +191,12 @@ class LSTM(L.LightningModule):
         self.summary_writer.add_scalar(
             "valid_loss_step",
             loss,
-            self.global_step,
+            self.current_epoch * self.trainer.num_val_batches[0] + batch_idx,
         )
-        self.log_stage("valid", outputs, targets)
+        self.log_stage("valid", outputs, targets, self.current_epoch * self.trainer.num_val_batches[0] + batch_idx)
         return loss
 
-    def test_step(self, batch, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
+    def test_step(self, batch, batch_idx, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
         inputs, targets = batch
         outputs = self(inputs).flatten(0, 1)  # [batch_size * sample_length, num_classes
         targets = targets.flatten(0, 1)
@@ -209,7 +205,7 @@ class LSTM(L.LightningModule):
             outputs, targets, weight=self.loss_weight, label_smoothing=self.label_smoothing
         )
 
-        self.log_stage("test", outputs, targets)
+        self.log_stage("test", outputs, targets, self.current_epoch * self.trainer.num_test_batches + batch_idx)
         return loss
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
