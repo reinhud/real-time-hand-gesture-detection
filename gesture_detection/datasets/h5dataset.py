@@ -292,15 +292,19 @@ class H5Dataset(torch.utils.data.Dataset):
             self.video_length[video] = length
             for idy in range(0, length, sample_length):
                 if idy + sample_length >= length:
-                    self.dataset.append({
-                        "video": video,
-                        "indices": np.linspace(length - sample_length, length, sample_length).astype(np.uint8)
-                    })
+                    indices = np.linspace(length - sample_length, length, sample_length).astype(np.uint8)
                 else:
-                    self.dataset.append({
-                        "video": video,
-                        "indices": np.linspace(idy, idy + sample_length, sample_length).astype(np.uint8)
-                    })
+                    indices = np.linspace(idy, idy + sample_length, sample_length).astype(np.uint8)
+                labels = load_video(self.dataset_root / f"{video}.hdf5", indices, labels_only=True)
+
+                # include only some examples of the majority class
+                if np.all(labels <= 3):
+                    if np.random.rand() < 0.95:
+                        continue
+                self.dataset.append({
+                    "video": video,
+                    "indices": indices
+                })
 
     def __getitem__(self, index):
         video = self.dataset[index]['video']
