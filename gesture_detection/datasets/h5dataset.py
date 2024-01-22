@@ -274,13 +274,14 @@ def convert_nvgesture(dataset_root: Path, destination_root: Path):
 
 class H5Dataset(torch.utils.data.Dataset):
 
-    def __init__(self, dataset_root: Path, videos: List[Tuple[str, int]], sample_length: int, transform=None):
+    def __init__(self, dataset_root: Path, videos: List[Tuple[str, int]], sample_length: int, transform=None, sequence_transform: bool = True):
         super().__init__()
 
         self.dataset_root = dataset_root
         self.videos = videos
         self.transform = transform
         self.sample_length = sample_length
+        self.sequence_transform = sequence_transform
 
         self.dataset = []
         self.video_length = {}
@@ -303,34 +304,35 @@ class H5Dataset(torch.utils.data.Dataset):
         indices = self.dataset[index]['indices'].copy()
         length = self.video_length[video]
 
-        if np.random.random() < 0.3:
-            # randomly shift sequences to left or right
-            offset = np.random.randint(0, self.sample_length // 2)
-            if indices.max() + offset < length:
-                indices += offset
-            else:
-                indices -= offset
-        elif np.random.random() < 0.7:
-            # enlarge sequence and drop random indices
-            start = indices.min()
-            stop = indices.max()
+        if self.sequence_transform:
+            if np.random.random() < 0.1:
+                # randomly shift sequences to left or right
+                offset = np.random.randint(0, self.sample_length // 2)
+                if indices.max() + offset < length:
+                    indices += offset
+                else:
+                    indices -= offset
+            elif np.random.random() < 0.7:
+                # enlarge sequence and drop random indices
+                start = indices.min()
+                stop = indices.max()
 
-            if stop + self.sample_length // 4 < length:
-                indices = np.linspace(
-                    start, stop + self.sample_length // 4, int(self.sample_length * 1.25), dtype=np.uint8
-                )
-            else:
-                indices = np.linspace(
-                    start - self.sample_length // 4, stop, int(self.sample_length * 1.25), dtype=np.uint8
-                )
+                if stop + self.sample_length // 4 < length:
+                    indices = np.linspace(
+                        start, stop + self.sample_length // 4, int(self.sample_length * 1.25), dtype=np.uint8
+                    )
+                else:
+                    indices = np.linspace(
+                        start - self.sample_length // 4, stop, int(self.sample_length * 1.25), dtype=np.uint8
+                    )
 
-            keep_indices = torch.randperm(int(self.sample_length * 1.25))[:self.sample_length]
-            indices = indices[keep_indices]
-            indices.sort()
-        else:
-            # draw random indices
-            indices = np.random.choice(indices, size=self.sample_length)
-            indices.sort()
+                keep_indices = torch.randperm(int(self.sample_length * 1.25))[:self.sample_length]
+                indices = indices[keep_indices]
+                indices.sort()
+            else:
+                # draw random indices
+                indices = np.random.choice(indices, size=self.sample_length)
+                indices.sort()
 
         clip, labels = load_video(self.dataset_root / f"{video}.hdf5", indices)
 
@@ -419,7 +421,8 @@ class H5DataModule(L.LightningDataModule):
                 self.sample_length,
                 transform=A.Compose([
                     A.Resize(sample_size, sample_size)
-                ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)})
+                ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)}),
+                sequence_transform=False
             )
 
         if stage == "test" or stage is None:
@@ -429,7 +432,8 @@ class H5DataModule(L.LightningDataModule):
                 self.sample_length,
                 transform=A.Compose([
                     A.Resize(sample_size, sample_size)
-                ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)})
+                ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)}),
+                sequence_transform=False
             )
 
     def train_dataloader(self):
