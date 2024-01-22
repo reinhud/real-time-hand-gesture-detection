@@ -87,13 +87,16 @@ class LSTM(L.LightningModule):
         if self.small:
             self.num_features = 576  # MBv3-S
             self.backbone = torchvision.models.mobilenet_v3_small(torchvision.models.MobileNet_V3_Small_Weights.DEFAULT)
-            self.backbone.classifier = nn.Identity()
-            self.sequence_model = nn.LSTM(self.num_features, self.num_classes, 1, batch_first=True)
         else:
             self.num_features = 960  # MBv3-L
             self.backbone = torchvision.models.mobilenet_v3_large(torchvision.models.MobileNet_V3_Large_Weights.DEFAULT)
-            self.backbone.classifier = nn.Identity()
-            self.sequence_model = nn.LSTM(self.num_features, self.num_classes, 1, batch_first=True)
+        self.backbone.classifier = nn.Identity()
+        self.sequence_model = nn.LSTM(self.num_features, 128, 1, batch_first=True)
+        self.linear = nn.Sequential(
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Linear(128, self.num_classes)
+        )
 
         self.metric_config = {
             "acc": (Accuracy, {"task": "multiclass", "num_classes": num_classes, "average": "macro"}),
@@ -132,7 +135,8 @@ class LSTM(L.LightningModule):
         x = x.flatten(0, 1)
         x = self.backbone(x)
         x = x.unflatten(0, (batch_size, time_steps))
-        out, (hn, cn) = self.sequence_model(x)
+        x, (hn, cn) = self.sequence_model(x)
+        out = self.linear(x.flatten(0, 1)).unflatten(0, (batch_size, time_steps))
         return out
 
     def training_step(self, batch, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
