@@ -66,7 +66,7 @@ def pil_loader(buffer: BytesIO):
         return img
 
 
-def load_video(h5video: Path, indices: Union[None, np.ndarray] = None):
+def load_video(h5video: Path, indices: Union[None, np.ndarray] = None, labels_only: bool = False):
     h5f = h5py.File(h5video, swmr=True)
     labels = np.array(h5f["label"])
     h5frames = h5f["frame"]
@@ -76,6 +76,9 @@ def load_video(h5video: Path, indices: Union[None, np.ndarray] = None):
         assert np.all(indices < N)
     else:
         indices = np.arange(N)
+
+    if labels_only:
+        return labels[indices]
 
     images = []
     for i in indices:
