@@ -227,6 +227,7 @@ class LSTM(L.LightningModule):
         opt = torch.optim.Adam([
             {"params": self.backbone.parameters(), "lr": self.backbone_lr},
             {"params": self.sequence_model.parameters()},
+            {"params": self.linear.parameters()},
         ], lr=self.lr, weight_decay=self.weight_decay)
         return opt
 
