@@ -15,6 +15,54 @@ from PIL import Image
 
 from gesture_detection.utility.find_num_worker_default import find_num_worker_default
 
+"""
+IPNHand classes:
+
+0: no gesture
+1: pointing with one finger
+2: pointing with two fingers
+3: click with one finger
+4: click with two fingers
+5: throw up
+6: throw down
+7: throw left (from the subject's perspective)
+8: throw right (from the subject's perspective)
+9: open twice
+10: double click with one finger
+11: double click with two fingers
+12: zoom in
+13: zoom out
+
+NVGesture classes:
+
+1: move hand left (from subject's perspective)
+2: move hand right (from subject's perspective)
+3: move hand up
+4: move hand down
+5: move two fingers left
+6: move two fingers right
+7: move two fingers up
+8: move two fingers down
+9: click index finger (one finger)
+10: call someone (close hands towards body)
+11: open hand once
+12: shaking hand
+13: show index finger
+14: show two fingers
+15: show three fingers
+16: push hand up
+17: push hand down
+18: push hand out
+19: pull hand in
+20: rotate fingers cw (subject's perspective)
+21: rotate fingers ccw (subject's perspective)
+22: push two fingers away
+23: close hand two times
+24: thumbs up
+25: okay gesture
+
+"""
+
 MAP_NVGESTURE_LABELS = {
     0: 15,
     1: 16,
@@ -220,7 +268,7 @@ def extract_nvgesture_video(
 
     cap = cv2.VideoCapture(str(path))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    labels = np.zeros((total_frames))
+    labels = np.ones((total_frames))
     labels[start_frame:end_frame] = MAP_NVGESTURE_LABELS[label]
 
     vid = "_".join(config[sensor].split("/")[2:4])
@@ -230,7 +278,7 @@ def extract_nvgesture_video(
     h5_frames = h5f.create_group("frame")
 
     # cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-    for i, frameIndx in enumerate(frames_to_load):
+    for i, frameIndx in enumerate(range(total_frames)):
         ret, frame = cap.read()
         if ret:
             frame = cv2.resize(frame, (image_width, image_height))
@@ -268,16 +316,31 @@ def convert_nvgesture(dataset_root: Path, destination_root: Path):
     h5info.create_dataset("train_videos", data=train_videos)
 
     test_videos = []
-    for config in train_list:
+    for config in test_list:
         vid, length = extract_nvgesture_video(dataset_root, destination_root, config, sensor)
         test_videos.append((bytes(vid, "utf-8"), length))
 
     h5info.create_dataset("test_videos", data=test_videos)
 
 
+def merge_datasets(a: Path, b: Path, out: Path):
+    info_a = load_info(a)
+    info_b = load_info(b)
+
+    num_classes = info_a["num_classes"] + info_b["num_classes"]
+    train_videos = info_a["train_videos"] + info_b["train_videos"]
+    test_videos = info_a["test_videos"] + info_b["test_videos"]
+    h5info = h5py.File(out, "w")
+    h5info.create_dataset("num_classes", data=num_classes)
+
+    h5info.create_dataset("train_videos", data=[(bytes(vid, "utf-8"), length) for vid, length in train_videos])
+    h5info.create_dataset("test_videos", data=[(bytes(vid, "utf-8"), length) for vid, length in test_videos])
+
+
 class H5Dataset(torch.utils.data.Dataset):
 
-    def __init__(self, dataset_root: Path, videos: List[Tuple[str, int]], sample_length: int, transform=None, sequence_transform: bool = True):
+    def __init__(self, dataset_root: Path, videos: List[Tuple[str, int]], sample_length: int, transform=None,
+                 sequence_transform: bool = True):
         super().__init__()
 
         self.dataset_root = dataset_root
@@ -292,9 +355,9 @@ class H5Dataset(torch.utils.data.Dataset):
             self.video_length[video] = length
             for idy in range(0, length, sample_length):
                 if idy + sample_length >= length:
-                    indices = np.linspace(length - sample_length, length, sample_length).astype(np.uint8)
+                    indices = np.linspace(length - sample_length, length - 1, sample_length).astype(np.uint8)
                 else:
-                    indices = np.linspace(idy, idy + sample_length, sample_length).astype(np.uint8)
+                    indices = np.linspace(idy, idy + sample_length - 1, sample_length).astype(np.uint8)
                 labels = load_video(self.dataset_root / f"{video}.hdf5", indices, labels_only=True)
 
                 # do not include examples of the majority classes
