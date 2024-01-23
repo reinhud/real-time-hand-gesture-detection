@@ -298,8 +298,8 @@ class H5Dataset(torch.utils.data.Dataset):
                 labels = load_video(self.dataset_root / f"{video}.hdf5", indices, labels_only=True)
 
                 # do not include examples of the majority classes
-                if np.all(labels <= 3):
-                    continue
+                # if np.all(labels <= 3):
+                #    continue
                 self.dataset.append({
                     "video": video,
                     "indices": indices
@@ -376,6 +376,7 @@ class H5DataModule(L.LightningDataModule):
             pin_memory: bool = False,
             seed: int = 42,
             sample_length: int = 32,
+            sample_size: int = 224
     ):
         super().__init__()
         self.batch_size = batch_size
@@ -386,6 +387,7 @@ class H5DataModule(L.LightningDataModule):
         self.pin_memory = pin_memory
         self.seed = seed
         self.sample_length = sample_length
+        self.sample_size = sample_size
         self.save_hyperparameters()
 
         self.train_dataset = None
@@ -396,7 +398,6 @@ class H5DataModule(L.LightningDataModule):
 
     def setup(self, stage: str = None):
         # transforms
-        sample_size = 224
         transform = A.Compose([
             A.OneOrOther(
                 A.RGBShift(),
@@ -407,9 +408,9 @@ class H5DataModule(L.LightningDataModule):
             A.OneOf([
                 A.Compose([
                     A.Rotate(30, crop_border=False, p=1.0),
-                    A.Resize(sample_size, sample_size)
+                    A.Resize(self.sample_size, self.sample_size)
                 ]),
-                A.RandomResizedCrop(sample_size, sample_size, scale=(0.8, 1.0))
+                A.RandomResizedCrop(self.sample_size, self.sample_size, scale=(0.8, 1.0))
             ], p=1.0)
         ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)})
 
@@ -426,7 +427,7 @@ class H5DataModule(L.LightningDataModule):
                 self.dataset_info["test_videos"],
                 self.sample_length,
                 transform=A.Compose([
-                    A.Resize(sample_size, sample_size)
+                    A.Resize(self.sample_size, self.sample_size)
                 ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)}),
                 sequence_transform=False
             )
@@ -437,7 +438,7 @@ class H5DataModule(L.LightningDataModule):
                 self.dataset_info["test_videos"],
                 self.sample_length,
                 transform=A.Compose([
-                    A.Resize(sample_size, sample_size)
+                    A.Resize(self.sample_size, self.sample_size)
                 ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)}),
                 sequence_transform=False
             )

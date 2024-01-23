@@ -1,4 +1,4 @@
-from typing import Any, Union
+from typing import Any, Union, List
 
 import lightning as L
 import torch
@@ -146,32 +146,30 @@ class ResNetLSTM(L.LightningModule):
     def __init__(
             self,
             num_classes: int,
-            lr: float = 0.01, backbone_lr: float = 0.001,
+            lr: float = 0.01,
             weight_decay: float = 0.0,
             loss_weight: list[float] | None = None,
             sample_length: int = 32,
             label_smoothing: float = 0.0,
-            small: bool = True
+            residual_config: List[int] = [16, 24, 40, 48],
     ):
         super().__init__()
         self.lr = lr
-        self.backbone_lr = backbone_lr
         self.weight_decay = weight_decay
         self.register_buffer("loss_weight",
                              torch.tensor(loss_weight) if loss_weight is not None else torch.ones(num_classes)
                              )
-        self.small = small
         self.num_classes = num_classes
         self.label_smoothing = label_smoothing
+        self.residual_config = residual_config
         # self.save_hyperparameters()
         self.summary_writer = SummaryWriterLogger()
 
-        residual_config = [16, 32, 32]
         self.conv1 = nn.Conv2d(
             in_channels=3,
             out_channels=residual_config[0],
             kernel_size=3,
-            stride=1,
+            stride=2,
             padding=1
         )
         self.bn1 = nn.BatchNorm2d(residual_config[0])
@@ -186,8 +184,11 @@ class ResNetLSTM(L.LightningModule):
 
         avg_pool_size = 2
         self.avg_pool = nn.AdaptiveAvgPool2d(2)
-        self.flatten = nn.Flatten()
-        self.classifier = nn.LSTM(avg_pool_size ** 2 * residual_config[-1], 14, batch_first=True)
+        hidden_size = int(avg_pool_size ** 2 * residual_config[-1])
+        self.sequence_model = nn.LSTM(
+            hidden_size, 20, batch_first=True
+        )
+        self.classifier = nn.Linear(20, self.num_classes)
 
         self.metric_config = {
             "acc": (Accuracy, {"task": "multiclass", "num_classes": num_classes, "average": "macro"}),
@@ -212,10 +213,9 @@ class ResNetLSTM(L.LightningModule):
         self.summary_writer.writer = self.logger.experiment
         self.summary_writer.add_hparams({
             "lr": self.lr,
-            "backbone_lr": self.backbone_lr,
             "weight_decay": self.weight_decay,
-            "small": self.small,
-            "label_smoothing": self.label_smoothing
+            "label_smoothing": self.label_smoothing,
+            "residual_config": ", ".join([str(x) for x in self.residual_config])
         })
 
     def on_test_start(self) -> None:
@@ -227,9 +227,12 @@ class ResNetLSTM(L.LightningModule):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.residual_blocks(out)
 
-        out = self.avg_pool(out).flatten(1, 2, 3)
+        out = self.avg_pool(out).flatten(1, 3)
         out = out.unflatten(0, (batch_size, time_steps))
-        out, (hn, cn) = self.classifier(out)
+        out, _ = self.sequence_model(out)
+        out = out.flatten(0, 1)
+        out = self.classifier(out)
+        out = out.unflatten(0, (batch_size, time_steps))
         return out
 
     def training_step(self, batch, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
@@ -317,23 +320,23 @@ class ResNetLSTM(L.LightningModule):
         return loss
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
-        opt = torch.optim.Adam([
-            {"params": self.backbone.parameters(), "lr": self.backbone_lr},
-            {"params": self.sequence_model.parameters()},
-        ], lr=self.lr, weight_decay=self.weight_decay)
+        opt = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         return opt
 
 
 def main():
-    model = ResNetLSTM()
+    model = ResNetLSTM(14)
 
     def capacity(module):
         num_param = sum(p.numel() for p in module.parameters() if p.requires_grad)
 
         return num_param
 
-    print(capacity(model))
-    out = model(torch.rand((2, 5, 3, 120, 120)))
+    # from torchsummary import summary
+    # summary(model, (5, 3, 224, 224), device="cpu")
+
+    inp = torch.rand((2, 5, 3, 224, 224))
+    out = model(inp)
     preds = F.softmax(out, dim=-1).argmax(dim=-1).squeeze(0).detach().numpy()
     print(f"predicted classes: {preds}")
 

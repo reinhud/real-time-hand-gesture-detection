@@ -1,0 +1,1 @@
+model.init_args.residual_config: [32, 32, 32, 32]
