@@ -1,8 +1,11 @@
 seed_everything: true
 trainer:
   accelerator: gpu
-  strategy: auto
-  devices: [0]
+  strategy:
+    class_path: lightning.pytorch.strategies.SingleDeviceStrategy
+    init_args:
+      device: 0
+  devices: 1
   num_nodes: 1
   precision: null
   logger: null
