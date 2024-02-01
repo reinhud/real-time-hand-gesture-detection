@@ -2,7 +2,7 @@ import argparse
 import csv
 from io import BytesIO
 from pathlib import Path
-from typing import Union, List, Tuple, Dict
+from typing import Union, List, Tuple, Dict, Optional
 
 import albumentations as A
 import cv2
@@ -64,32 +64,35 @@ NVGesture classes:
 """
 
 MAP_NVGESTURE_LABELS = {
-    0: 15,
-    1: 16,
-    2: 17,
-    3: 18,
-    4: 19,
-    5: 20,
-    6: 21,
-    7: 22,
-    8: 23,
-    9: 24,
-    10: 25,
-    11: 26,
-    12: 27,
-    13: 28,
-    14: 29,
-    15: 30,
-    16: 31,
-    17: 32,
-    18: 33,
-    19: 34,
-    20: 35,
-    21: 36,
-    22: 37,
-    23: 38,
-    24: 39,
+    0:  14,
+    1:  15,
+    2:  16,
+    3:  17,
+    4:  18,
+    5:  19,
+    6:  20,
+    7:  21,
+    8:  22,
+    9:  23,
+    10: 24,
+    11: 25,
+    12: 26,
+    13: 27,
+    14: 28,
+    15: 29,
+    16: 30,
+    17: 31,
+    18: 32,
+    19: 33,
+    20: 34,
+    21: 35,
+    22: 36,
+    23: 37,
+    24: 38,
 }
+
+ONLY_NVGESTURE_LABELS = {v: k+1 for k, v in MAP_NVGESTURE_LABELS.items()}  # labels 1 - 25
+ONLY_NVGESTURE_LABELS[0] = 0  # add no gesture class
 
 
 def load_csv(path: Path):
@@ -180,7 +183,6 @@ def convert_ipnhand(dataset_root: Path, destination_root: Path):
 
     # create a list of annotations for each video
     # break label list into sequences of length sample_length
-    ann_by_vid_list = {}
     for vid in ann_by_vid_dict.keys():
         video_path = frames_root / vid
 
@@ -195,7 +197,7 @@ def convert_ipnhand(dataset_root: Path, destination_root: Path):
         labels = []
         for ann in anns:
             labels.extend([int(ann["id"])] * int(ann["frames"]))
-        ann_by_vid_list[vid] = labels
+        labels = np.array(labels, np.uint8) - 1
 
         h5f = h5py.File(destination_root / f"{vid}.hdf5", "w")
         h5f.create_dataset("label", (len(labels)), dtype=int, data=labels)
@@ -268,7 +270,7 @@ def extract_nvgesture_video(
 
     cap = cv2.VideoCapture(str(path))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    labels = np.ones((total_frames))
+    labels = np.zeros((total_frames))
     labels[start_frame:end_frame] = MAP_NVGESTURE_LABELS[label]
 
     vid = "_".join(config[sensor].split("/")[2:4])
@@ -340,7 +342,7 @@ def merge_datasets(a: Path, b: Path, out: Path):
 class H5Dataset(torch.utils.data.Dataset):
 
     def __init__(self, dataset_root: Path, videos: List[Tuple[str, int]], sample_length: int, transform=None,
-                 sequence_transform: bool = True):
+                 sequence_transform: bool = True, labels_transform: Optional[Dict] = None):
         super().__init__()
 
         self.dataset_root = dataset_root
@@ -348,6 +350,7 @@ class H5Dataset(torch.utils.data.Dataset):
         self.transform = transform
         self.sample_length = sample_length
         self.sequence_transform = sequence_transform
+        self.labels_transform = labels_transform
 
         self.dataset = []
         self.video_length = {}
@@ -358,11 +361,7 @@ class H5Dataset(torch.utils.data.Dataset):
                     indices = np.linspace(length - sample_length, length - 1, sample_length).astype(np.uint8)
                 else:
                     indices = np.linspace(idy, idy + sample_length - 1, sample_length).astype(np.uint8)
-                labels = load_video(self.dataset_root / f"{video}.hdf5", indices, labels_only=True)
 
-                # do not include examples of the majority classes
-                # if np.all(labels <= 3):
-                #    continue
                 self.dataset.append({
                     "video": video,
                     "indices": indices
@@ -405,6 +404,9 @@ class H5Dataset(torch.utils.data.Dataset):
 
         clip, labels = load_video(self.dataset_root / f"{video}.hdf5", indices)
 
+        if self.labels_transform is not None:
+            labels = [self.labels_transform[label] for label in labels]
+
         if self.transform is not None:
             clip_dict = {f"image{i}": clip[i] for i in range(self.sample_length)}
             clip_dict["image"] = clip[0]
@@ -418,10 +420,7 @@ class H5Dataset(torch.utils.data.Dataset):
         image_dimension = clip[0].shape[-2:]
         clip = torch.cat(clip, 0).view((self.sample_length, -1) + image_dimension)
 
-        # subtract 1 so that labels are in range [0, 13]
-        target = torch.tensor(labels) - 1
-
-        return clip, target
+        return clip, torch.tensor(labels)
 
     def __len__(self):
         return len(self.dataset)
@@ -453,6 +452,18 @@ class H5DataModule(L.LightningDataModule):
         self.sample_size = sample_size
         self.save_hyperparameters()
 
+        self.labels_transform = None
+        if self.dataset_info_filename in ["ipnhand.hdf5", "nvgesture.hdf5", "jestergesture.hdf5"]:
+            if self.dataset_info_filename == "ipnhand.hdf5":
+                print(f"Using IPNHand labels only!")
+                # nothing to do since the IPNHand labels already occupy classes 0-13
+            elif self.dataset_info_filename == "nvgesture.hdf5":
+                print(f"Using NVGesture labels only!")
+                self.labels_transform = ONLY_NVGESTURE_LABELS
+            elif self.dataset_info_filename == "jestergesture.hdf5":
+                print(f"Using JesterGesture labels only!")
+                self.labels_transform = ONLY_JESTER_GESTURE_LABELS
+
         self.train_dataset = None
         self.test_dataset = None
 
@@ -483,7 +494,7 @@ class H5DataModule(L.LightningDataModule):
                 self.dataset_root,
                 self.dataset_info["train_videos"],
                 self.sample_length,
-                transform=transform
+                transform=transform, labels_transform=self.labels_transform
             )
             self.test_dataset = H5Dataset(
                 self.dataset_root,
@@ -492,7 +503,7 @@ class H5DataModule(L.LightningDataModule):
                 transform=A.Compose([
                     A.Resize(self.sample_size, self.sample_size)
                 ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)}),
-                sequence_transform=False
+                sequence_transform=False, labels_transform=self.labels_transform
             )
 
         if stage == "test" or stage is None:
@@ -503,7 +514,7 @@ class H5DataModule(L.LightningDataModule):
                 transform=A.Compose([
                     A.Resize(self.sample_size, self.sample_size)
                 ], additional_targets={f"image{i}": "image" for i in range(self.sample_length)}),
-                sequence_transform=False
+                sequence_transform=False, labels_transform=self.labels_transform
             )
 
     def train_dataloader(self):
