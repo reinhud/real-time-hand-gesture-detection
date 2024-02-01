@@ -118,7 +118,12 @@ def pil_loader(buffer: BytesIO):
 
 
 def load_video(h5video: Path, indices: Union[None, np.ndarray] = None, labels_only: bool = False):
-    h5f = h5py.File(h5video, swmr=True)
+    try:
+        h5f = h5py.File(h5video, swmr=True)
+    except FileNotFoundError:
+        print(f"Couldn't find {h5video}. Trying again. ")
+        h5f = h5py.File(h5video, swmr=True)
+
     labels = np.array(h5f["label"])
     h5frames = h5f["frame"]
 
