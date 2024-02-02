@@ -63,6 +63,39 @@ NVGesture classes:
 
 """
 
+MAP_JESTER_GESTURE_LABELS = {
+    "Swiping Left": 0,
+    "Swiping Right": 0,
+    "Swiping Up": 0,
+    "Swiping Down": 0,
+    "Pushing Hand Away": 0,
+    "Pulling Hand In": 0,
+    "Sliding Two Fingers Left": 0,
+    "Sliding Two Fingers Right": 0,
+    "Sliding Two Fingers Down": 0,
+    "Sliding Two Fingers Up": 0,
+    "Pushing Two Fingers Away": 0,
+    "Pulling Two Fingers In": 0,
+    "Rolling Hand Forward": 0,
+    "Rolling Hand Backward": 0,
+    "Turning Hand Clockwise": 0,
+    "Turning Hand Counterclockwise": 0,
+    "Zooming In With Full Hand": 0,
+    "Zooming Out With Full Hand": 0,
+    "Zooming In With Two Fingers": 0,
+    "Zooming Out With Two Fingers": 0,
+    "Thumb Up": 0,
+    "Thumb Down": 0,
+    "Shaking Hand": 0,
+    "Stop Sign": 0,
+    "Drumming Fingers": 0,
+    "No gesture": 0,
+    "Doing other things": 0
+}
+
+ONLY_JESTER_GESTURE_LABELS = {} # {v: k+1 for k, v in MAP_JESTER_GESTURE_LABELS.items()}  # labels 1 - 25
+ONLY_JESTER_GESTURE_LABELS[0] = 0  # add no gesture class
+
 MAP_NVGESTURE_LABELS = {
     0:  14,
     1:  15,
@@ -149,13 +182,19 @@ def load_video(h5video: Path, indices: Union[None, np.ndarray] = None, labels_on
 def load_info(h5info: Path):
     h5info = h5py.File(h5info, swmr=True)
 
-    num_classes = int(np.array(h5info["num_classes"]))
+    num_classes = None
+    if "num_classes" in h5info.keys():
+        num_classes = int(np.array(h5info["num_classes"]))
     train_videos = [(x[0].decode("utf-8"), int(x[1])) for x in np.array(h5info["train_videos"])]
     test_videos = [(x[0].decode("utf-8"), int(x[1])) for x in np.array(h5info["test_videos"])]
+    eval_videos = None
+    if "eval_videos" in h5info.keys():
+        eval_videos = [(x[0].decode("utf-8"), int(x[1])) for x in np.array(h5info["eval_videos"])]
     return {
         "num_classes": num_classes,
         "train_videos": train_videos,
-        "test_videos": test_videos
+        "test_videos": test_videos,
+        "eval_videos": eval_videos
     }
 
 
@@ -328,6 +367,53 @@ def convert_nvgesture(dataset_root: Path, destination_root: Path):
         test_videos.append((bytes(vid, "utf-8"), length))
 
     h5info.create_dataset("test_videos", data=test_videos)
+
+
+def convert_jester(dataset_root: Path, destination_root: Path):
+    frames_root = dataset_root / "frames"
+    labels_root = dataset_root / "labels"
+
+    h5info = h5py.File(destination_root / "jester.hdf5", "w")
+
+    for subset in ["validation.csv"]:  # ["train.csv", "validation.csv", "test-answers.csv"]:
+        with open(labels_root / subset, "r") as f:
+            reader = csv.DictReader(f, fieldnames=["video", "label"], delimiter=";")
+
+            videos_labels = {
+                x["video"]: MAP_JESTER_GESTURE_LABELS[x["label"]] for x in list(reader)
+            }
+
+            data = []
+
+            for video in sorted(videos_labels.keys()):
+                idx = 1
+
+                h5f = h5py.File(destination_root / f"{video}.hdf5", "w")
+
+                h5_frames = h5f.create_group("frame")
+
+                while (img := frames_root / video / f"{idx:05d}.jpg").exists():
+                    frame = cv2.imread(str(img))
+                    frame = cv2.resize(frame, (320, 240))
+
+                    ret, buffer = cv2.imencode(".jpg", frame)
+                    buffer = BytesIO(buffer)
+                    bbytes = np.void(buffer.getbuffer().tobytes())
+
+                    h5_frames.create_dataset(str(idx - 1), dtype=h5py.opaque_dtype(bbytes.dtype), data=np.void(bbytes))
+
+                    idx += 1
+
+                if idx == 1:
+                    continue
+
+                labels = np.ones((idx - 1), dtype=np.uint8) * videos_labels[video]
+                h5f.create_dataset("label", (len(labels)), dtype=int, data=labels)
+                data.append((bytes(video, "utf-8"), len(labels)))
+                break
+
+            h5info.create_dataset("train_videos", data=data)  # data [(vid, length), (...)]
+
 
 
 def merge_datasets(a: Path, b: Path, out: Path):
@@ -552,6 +638,7 @@ def main():
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--ipn", type=Path)
     argparser.add_argument("--nvg", type=Path)
+    argparser.add_argument("--jg", type=Path)
     argparser.add_argument("--h5", type=Path)
     argparser.add_argument("--convert", action="store_true")
     argparser.add_argument("--info", action="store_true")
@@ -563,6 +650,8 @@ def main():
             convert_ipnhand(args.ipn, args.h5)
         if args.nvg is not None and args.h5 is not None:
             convert_nvgesture(args.nvg, args.h5)
+        if args.jg is not None and args.h5 is not None:
+            convert_jester(args.jg, args.h5)
     if args.info:
         info = load_info(args.infofile)
         print(info)
