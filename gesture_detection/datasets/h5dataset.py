@@ -617,10 +617,12 @@ class H5DataModule(L.LightningDataModule):
         transform = A.Compose([
             A.OneOrOther(
                 A.RGBShift(),
-                A.ColorJitter()
+                A.ColorJitter(),
+                p=0.9
             ),
-            A.Blur(),
-            A.GaussNoise(),
+            A.Blur(p=0.7),
+            A.GaussNoise(p=0.7),
+            A.PixelDropout(),
             A.OneOf([
                 A.Compose([
                     A.Rotate(30, crop_border=False, p=1.0),
