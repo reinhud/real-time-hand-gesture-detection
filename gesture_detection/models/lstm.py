@@ -225,7 +225,13 @@ class LSTM(L.LightningModule):
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
         opt = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
-        return opt
+        sched = torch.optim.lr_scheduler.MultiStepLR(
+            opt,
+            [10, 20, 35, 50, 75, 100],
+            0.3,
+            verbose=True
+        )
+        return {"optimizer": opt, "lr_scheduler": sched}
 
 
 def main():

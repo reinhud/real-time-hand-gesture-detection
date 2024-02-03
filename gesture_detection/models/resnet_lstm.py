@@ -186,9 +186,9 @@ class ResNetLSTM(L.LightningModule):
         self.avg_pool = nn.AdaptiveAvgPool2d(2)
         hidden_size = int(avg_pool_size ** 2 * residual_config[-1])
         self.sequence_model = nn.LSTM(
-            hidden_size, 20, batch_first=True
+            hidden_size, 64, batch_first=True
         )
-        self.classifier = nn.Linear(20, self.num_classes)
+        self.classifier = nn.Linear(64, self.num_classes)
 
         self.metric_config = {
             "acc": (Accuracy, {"task": "multiclass", "num_classes": num_classes, "average": "macro"}),
@@ -321,7 +321,13 @@ class ResNetLSTM(L.LightningModule):
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
         opt = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
-        return opt
+        sched = torch.optim.lr_scheduler.MultiStepLR(
+            opt,
+            [10, 20, 35, 50, 75, 100],
+            0.3,
+            verbose=True
+        )
+        return {"optimizer": opt, "lr_scheduler": sched}
 
 
 def main():
