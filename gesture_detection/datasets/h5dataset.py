@@ -523,14 +523,13 @@ class H5Dataset(torch.utils.data.Dataset):
 
         if length < self.sample_length:  # enforce sequences of equal length
             indices = np.random.choice(indices, size=self.sample_length)
-            indices.sort()
         elif self.sequence_transform:
             if np.random.random() < 0.1:
                 # randomly shift sequences to left or right
                 offset = np.random.randint(0, self.sample_length // 2)
                 if indices.max() + offset < length:
                     indices += offset
-                else:
+                elif indices.min() - offset >= 0:
                     indices -= offset
             elif np.random.random() < 0.7:
                 # enlarge sequence and drop random indices
@@ -548,11 +547,11 @@ class H5Dataset(torch.utils.data.Dataset):
 
                 keep_indices = torch.randperm(int(self.sample_length * 1.25))[:self.sample_length]
                 indices = indices[keep_indices]
-                indices.sort()
             else:
                 # draw random indices
                 indices = np.random.choice(indices, size=self.sample_length)
-                indices.sort()
+        indices = np.clip(indices, 0, length - 1)
+        indices.sort()
 
         clip, labels = load_video(self.dataset_root / f"{video}.hdf5", indices, group=group)
 
