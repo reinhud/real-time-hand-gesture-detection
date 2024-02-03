@@ -35,66 +35,92 @@ IPNHand classes:
 
 NVGesture classes:
 
-1: move hand left (from subject's perspective)
-2: move hand right (from subject's perspective)
-3: move hand up
-4: move hand down
-5: move two fingers left
-6: move two fingers right
-7: move two fingers up
-8: move two fingers down
-9: click index finger (one finger)
-10: call someone (close hands towards body)
-11: open hand once
-12: shaking hand
-13: show index finger
-14: show two fingers
-15: show three fingers
-16: push hand up
-17: push hand down
-18: push hand out
-19: pull hand in
-20: rotate fingers cw (subject's perspective)
-21: rotate fingers ccw (subject's perspective)
-22: push two fingers away
-23: close hand two times
-24: thumbs up
-25: okay gesture
+14: move hand left (from subject's perspective)
+15: move hand right (from subject's perspective)
+16: move hand up
+17: move hand down
+18: move two fingers left
+19: move two fingers right
+20: move two fingers up
+21: move two fingers down
+22: click index finger (one finger)
+23: call someone (close hands towards body)
+24: open hand once
+25: shaking hand
+26: show index finger
+27: show two fingers
+28: show three fingers
+29: push hand up
+30: push hand down
+31: push hand out
+32: pull hand in
+33: rotate fingers cw (subject's perspective)
+34: rotate fingers ccw (subject's perspective)
+35: push two fingers away
+36: close hand two times
+37: thumbs up
+38: okay gesture
 
 """
 
 MAP_JESTER_GESTURE_LABELS = {
-    "Swiping Left": 0,
-    "Swiping Right": 0,
-    "Swiping Up": 0,
-    "Swiping Down": 0,
-    "Pushing Hand Away": 0,
-    "Pulling Hand In": 0,
-    "Sliding Two Fingers Left": 0,
-    "Sliding Two Fingers Right": 0,
-    "Sliding Two Fingers Down": 0,
-    "Sliding Two Fingers Up": 0,
-    "Pushing Two Fingers Away": 0,
-    "Pulling Two Fingers In": 0,
-    "Rolling Hand Forward": 0,
-    "Rolling Hand Backward": 0,
-    "Turning Hand Clockwise": 0,
-    "Turning Hand Counterclockwise": 0,
-    "Zooming In With Full Hand": 0,
-    "Zooming Out With Full Hand": 0,
-    "Zooming In With Two Fingers": 0,
-    "Zooming Out With Two Fingers": 0,
-    "Thumb Up": 0,
-    "Thumb Down": 0,
-    "Shaking Hand": 0,
-    "Stop Sign": 0,
-    "Drumming Fingers": 0,
+    "Swiping Left": 14,
+    "Swiping Right": 15,
+    "Swiping Up": 16,
+    "Swiping Down": 17,
+    "Pushing Hand Away": 31,
+    "Pulling Hand In": 32,
+    "Sliding Two Fingers Left": 18,
+    "Sliding Two Fingers Right": 19,
+    "Sliding Two Fingers Down": 20,
+    "Sliding Two Fingers Up": 21,
+    "Pushing Two Fingers Away": 35,
+    "Pulling Two Fingers In": 39,
+    "Rolling Hand Forward": 40,
+    "Rolling Hand Backward": 41,
+    "Turning Hand Clockwise": 42,
+    "Turning Hand Counterclockwise": 43,
+    "Zooming In With Full Hand": 44,
+    "Zooming Out With Full Hand": 45,
+    "Zooming In With Two Fingers": 46,
+    "Zooming Out With Two Fingers": 47,
+    "Thumb Up": 37,
+    "Thumb Down": 48,
+    "Shaking Hand": 25,
+    "Stop Sign": 49,
+    "Drumming Fingers": 50,
     "No gesture": 0,
     "Doing other things": 0
 }
 
-ONLY_JESTER_GESTURE_LABELS = {} # {v: k+1 for k, v in MAP_JESTER_GESTURE_LABELS.items()}  # labels 1 - 25
-ONLY_JESTER_GESTURE_LABELS[0] = 0  # add no gesture class
+ONLY_JESTER_GESTURE_LABELS = {
+    0: 0,
+    14: 1,
+    15: 2,
+    16: 3,
+    17: 4,
+    31: 5,
+    32: 6,
+    18: 7,
+    19: 8,
+    20: 9,
+    21: 10,
+    35: 11,
+    39: 12,
+    40: 13,
+    41: 14,
+    42: 15,
+    43: 16,
+    44: 17,
+    45: 18,
+    46: 19,
+    47: 20,
+    37: 21,
+    48: 22,
+    25: 23,
+    49: 26,
+    50: 27,
+}
 
 MAP_NVGESTURE_LABELS = {
     0:  14,
@@ -146,19 +172,24 @@ def bytesio_loader(path: Path):
 def pil_loader(buffer: BytesIO):
     with Image.open(buffer) as img:
         img = img.convert('RGB')
+        img = img.resize((320, 240))
         img = np.array(img)
         return img
 
 
-def load_video(h5video: Path, indices: Union[None, np.ndarray] = None, labels_only: bool = False):
+def load_video(
+        h5video: Path, indices: Union[None, np.ndarray] = None, labels_only: bool = False, group: Optional[int] = None
+):
     try:
         h5f = h5py.File(h5video, swmr=True)
     except FileNotFoundError:
         print(f"Couldn't find {h5video}. Trying again. ")
         h5f = h5py.File(h5video, swmr=True)
 
-    labels = np.array(h5f["label"])
-    h5frames = h5f["frame"]
+    h5g = h5f if group is None else h5f[str(group)]
+
+    labels = np.array(h5g["label"])
+    h5frames = h5g["frame"]
 
     N = len(labels)
     if indices is not None:
@@ -375,7 +406,7 @@ def convert_jester(dataset_root: Path, destination_root: Path):
 
     h5info = h5py.File(destination_root / "jester.hdf5", "w")
 
-    for subset in ["validation.csv"]:  # ["train.csv", "validation.csv", "test-answers.csv"]:
+    for subset in ["train.csv", "validation.csv", "test-answers.csv"]:
         with open(labels_root / subset, "r") as f:
             reader = csv.DictReader(f, fieldnames=["video", "label"], delimiter=";")
 
@@ -385,35 +416,43 @@ def convert_jester(dataset_root: Path, destination_root: Path):
 
             data = []
 
-            for video in sorted(videos_labels.keys()):
+            videos = sorted(videos_labels.keys())
+
+            num_vids_per_file = 500
+            h5f = None
+            for video_index in range(len(videos)):
+                filename = f"{subset[:3]}_{video_index // num_vids_per_file}"
+                if video_index % num_vids_per_file == 0:
+                    h5f = h5py.File(
+                        destination_root / f"{filename}.hdf5", "w"
+                    )
+
+                grp = h5f.create_group(str(video_index % num_vids_per_file))
+
+                video = videos[video_index]
+
+                h5_frames = grp.create_group("frame")
                 idx = 1
-
-                h5f = h5py.File(destination_root / f"{video}.hdf5", "w")
-
-                h5_frames = h5f.create_group("frame")
-
                 while (img := frames_root / video / f"{idx:05d}.jpg").exists():
-                    frame = cv2.imread(str(img))
-                    frame = cv2.resize(frame, (320, 240))
-
-                    ret, buffer = cv2.imencode(".jpg", frame)
-                    buffer = BytesIO(buffer)
+                    buffer = bytesio_loader(str(img))
                     bbytes = np.void(buffer.getbuffer().tobytes())
 
                     h5_frames.create_dataset(str(idx - 1), dtype=h5py.opaque_dtype(bbytes.dtype), data=np.void(bbytes))
 
                     idx += 1
 
-                if idx == 1:
-                    continue
+                assert idx > 1, "videos must not be empty"
 
                 labels = np.ones((idx - 1), dtype=np.uint8) * videos_labels[video]
-                h5f.create_dataset("label", (len(labels)), dtype=int, data=labels)
-                data.append((bytes(video, "utf-8"), len(labels)))
-                break
+                grp.create_dataset("label", (len(labels)), dtype=int, data=labels)
+                data.append((bytes(filename, "utf-8"), len(labels)))
 
-            h5info.create_dataset("train_videos", data=data)  # data [(vid, length), (...)]
-
+            if "train" in subset:
+                h5info.create_dataset("train_videos", data=data)
+            elif "valid" in subset:
+                h5info.create_dataset("test_videos", data=data)
+            else:
+                h5info.create_dataset("eval_videos", data=data)
 
 
 def merge_datasets(a: Path, b: Path, out: Path):
@@ -445,23 +484,35 @@ class H5Dataset(torch.utils.data.Dataset):
 
         self.dataset = []
         self.video_length = {}
-        for (video, length) in videos:
-            self.video_length[video] = length
-            for idy in range(0, length, sample_length):
-                if idy + sample_length >= length:
-                    indices = np.linspace(length - sample_length, length - 1, sample_length).astype(np.uint8)
-                else:
-                    indices = np.linspace(idy, idy + sample_length - 1, sample_length).astype(np.uint8)
 
-                self.dataset.append({
-                    "video": video,
-                    "indices": indices
-                })
+        for (video, length) in videos:
+            if video not in self.video_length.keys():
+                self.video_length[video] = [length]
+            else:
+                self.video_length[video].append(length)
+
+        for video in self.video_length.keys():
+            lengths = self.video_length[video]
+            for idl in range(len(lengths)):
+                length = lengths[idl]
+                for idy in range(0, length, sample_length):
+                    if idy + sample_length >= length:
+                        indices = np.linspace(length - sample_length, length - 1, sample_length).astype(np.uint8)
+                    else:
+                        indices = np.linspace(idy, idy + sample_length - 1, sample_length).astype(np.uint8)
+
+                    group = None if len(lengths) == 1 else idl
+                    self.dataset.append({
+                        "video": video,
+                        "indices": indices,
+                        "group": group
+                    })
 
     def __getitem__(self, index):
         video = self.dataset[index]['video']
         indices = self.dataset[index]['indices'].copy()
-        length = self.video_length[video]
+        group = self.dataset[index]["group"]
+        length = self.video_length[video][0 if group is None else group]
 
         if self.sequence_transform:
             if np.random.random() < 0.1:
@@ -478,11 +529,11 @@ class H5Dataset(torch.utils.data.Dataset):
 
                 if stop + self.sample_length // 4 < length:
                     indices = np.linspace(
-                        start, stop + self.sample_length // 4, int(self.sample_length * 1.25), dtype=np.uint8
+                        start, stop + self.sample_length // 4, int(self.sample_length * 1.25), dtype=np.uint64
                     )
                 else:
                     indices = np.linspace(
-                        start - self.sample_length // 4, stop, int(self.sample_length * 1.25), dtype=np.uint8
+                        max(0, start - self.sample_length // 4), stop, int(self.sample_length * 1.25), dtype=np.uint64
                     )
 
                 keep_indices = torch.randperm(int(self.sample_length * 1.25))[:self.sample_length]
@@ -493,7 +544,7 @@ class H5Dataset(torch.utils.data.Dataset):
                 indices = np.random.choice(indices, size=self.sample_length)
                 indices.sort()
 
-        clip, labels = load_video(self.dataset_root / f"{video}.hdf5", indices)
+        clip, labels = load_video(self.dataset_root / f"{video}.hdf5", indices, group=group)
 
         if self.labels_transform is not None:
             labels = [self.labels_transform[label] for label in labels]
@@ -544,14 +595,14 @@ class H5DataModule(L.LightningDataModule):
         self.save_hyperparameters()
 
         self.labels_transform = None
-        if self.dataset_info_filename in ["ipnhand.hdf5", "nvgesture.hdf5", "jestergesture.hdf5"]:
+        if self.dataset_info_filename in ["ipnhand.hdf5", "nvgesture.hdf5", "jester.hdf5"]:
             if self.dataset_info_filename == "ipnhand.hdf5":
                 print(f"Using IPNHand labels only!")
                 # nothing to do since the IPNHand labels already occupy classes 0-13
             elif self.dataset_info_filename == "nvgesture.hdf5":
                 print(f"Using NVGesture labels only!")
                 self.labels_transform = ONLY_NVGESTURE_LABELS
-            elif self.dataset_info_filename == "jestergesture.hdf5":
+            elif self.dataset_info_filename == "jester.hdf5":
                 print(f"Using JesterGesture labels only!")
                 self.labels_transform = ONLY_JESTER_GESTURE_LABELS
 
