@@ -497,9 +497,16 @@ class H5Dataset(torch.utils.data.Dataset):
                 length = lengths[idl]
                 for idy in range(0, length, sample_length):
                     if idy + sample_length >= length:
-                        indices = np.linspace(length - sample_length, length - 1, sample_length).astype(np.uint8)
+                        if length <= sample_length:
+                            # deal with sequences that are shorter than the sample length
+                            indices = np.arange(length, dtype=np.uint64)
+                        elif length - idy < sample_length // 3:
+                            # remove samples that have significant overlap
+                            continue
+                        else:
+                            indices = np.linspace(length - sample_length, length - 1, sample_length, dtype=np.uint64)
                     else:
-                        indices = np.linspace(idy, idy + sample_length - 1, sample_length).astype(np.uint8)
+                        indices = np.linspace(idy, idy + sample_length - 1, sample_length, dtype=np.uint64)
 
                     group = None if len(lengths) == 1 else idl
                     self.dataset.append({
@@ -514,7 +521,10 @@ class H5Dataset(torch.utils.data.Dataset):
         group = self.dataset[index]["group"]
         length = self.video_length[video][0 if group is None else group]
 
-        if self.sequence_transform:
+        if length < self.sample_length:  # enforce sequences of equal length
+            indices = np.random.choice(indices, size=self.sample_length)
+            indices.sort()
+        elif self.sequence_transform:
             if np.random.random() < 0.1:
                 # randomly shift sequences to left or right
                 offset = np.random.randint(0, self.sample_length // 2)
