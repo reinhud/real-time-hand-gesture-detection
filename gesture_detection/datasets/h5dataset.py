@@ -118,8 +118,8 @@ ONLY_JESTER_GESTURE_LABELS = {
     37: 21,
     48: 22,
     25: 23,
-    49: 26,
-    50: 27,
+    49: 24,
+    50: 25,
 }
 
 MAP_NVGESTURE_LABELS = {
