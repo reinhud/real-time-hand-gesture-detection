@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import torch
@@ -10,15 +11,17 @@ def plot_confusion_matrix(output: torch.Tensor, class_names: Optional[List[str]]
     if class_names is None:
         class_names = [str(i) for i in range(output.shape[0])]
 
-    fig = plt.figure(figsize=(16, 14))
+    N = output.shape[0]
+    fig = plt.figure(figsize=(N + 2, N))
     ax = plt.subplot()
     output = output / (output.sum(dim=1)[:, None] + 1e-9)
     sns.heatmap(
-        output.cpu().numpy(),
+        (100 * output).cpu().numpy().astype(np.uint8),
         vmin=0.0,
-        vmax=1.0,
+        vmax=100.0,
         annot=True,
         ax=ax,
+        fmt="2d"
     )
 
     # labels, title and ticks
