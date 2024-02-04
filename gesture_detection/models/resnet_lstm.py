@@ -1,8 +1,6 @@
-import time
-from typing import Any, Union, Optional
+from typing import Any, Union, List
 
 import lightning as L
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -28,7 +26,6 @@ class SummaryWriterLogger:
     @writer.setter
     def writer(self, value):
         self._writer = value
-
 
     def add_scalar(self, metric_name, value, step):
         if self._writer is None:
@@ -61,56 +58,137 @@ class SummaryWriterLogger:
         self._writer.flush()
 
 
-class LSTM(L.LightningModule):
+class ResidualBlock(nn.Module):
+
+    def __init__(self, in_channels, out_channels, stride=1):
+        """
+        Create residual block with two conv layers.
+
+        Parameters:
+            - in_channels (int): Number of input channels.
+            - out_channels (int): Number of output channels.
+            - stride (int): Stride for first convolution.
+
+        """
+        super().__init__()
+        ############################################################
+        ###                  START OF YOUR CODE                  ###
+        ############################################################
+
+        self.conv1 = nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=3,
+            stride=stride,
+            padding=1,
+            bias=False
+        )
+
+        self.bn1 = nn.BatchNorm2d(out_channels)
+
+        self.conv2 = nn.Conv2d(
+            in_channels=out_channels,
+            out_channels=out_channels,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False
+        )
+
+        self.bn2 = nn.BatchNorm2d(out_channels)
+
+        self.residual = nn.Identity() if (in_channels == out_channels and stride == 1) else nn.Sequential(
+            nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=1,
+                stride=stride,
+                padding=0,
+                bias=False
+            ),
+            nn.BatchNorm2d(out_channels)
+        )
+
+        ############################################################
+        ###                   END OF YOUR CODE                   ###
+        ############################################################
+
+    def forward(self, x):
+        """
+        Compute the forward pass through the residual block.
+
+        Parameters:
+            - x (torch.Tensor): Input.
+
+        Returns:
+            - out (torch.tensor): Output.
+
+        """
+        ############################################################
+        ###                  START OF YOUR CODE                  ###
+        ############################################################
+
+        out = self.bn1(self.conv1(x))
+        out = F.relu(out)
+        out = self.bn2(self.conv2(out))
+
+        out = out + self.residual(x)
+        out = F.relu(out)
+
+        ############################################################
+        ###                   END OF YOUR CODE                   ###
+        ############################################################
+        return out
+
+
+class ResNetLSTM(L.LightningModule):
 
     def __init__(
             self,
             num_classes: int,
-            lr: float = 0.01, backbone_lr: float = 0.001,
+            lr: float = 0.01,
             weight_decay: float = 0.0,
             loss_weight: list[float] | None = None,
             sample_length: int = 32,
             label_smoothing: float = 0.0,
-            small: bool = True,
-            pretrained: Optional[str] = None
+            residual_config: List[int] = [16, 24, 40, 48],
     ):
         super().__init__()
         self.lr = lr
-        self.backbone_lr = backbone_lr
         self.weight_decay = weight_decay
         self.register_buffer("loss_weight",
                              torch.tensor(loss_weight) if loss_weight is not None else torch.ones(num_classes)
                              )
-        self.small = small
         self.num_classes = num_classes
         self.label_smoothing = label_smoothing
-        self.pretrained = pretrained
+        self.residual_config = residual_config
         # self.save_hyperparameters()
         self.summary_writer = SummaryWriterLogger()
 
-        if self.small:
-            self.num_features = 576  # MBv3-S
-            self.backbone = torchvision.models.mobilenet_v3_small(torchvision.models.MobileNet_V3_Small_Weights.DEFAULT)
-        else:
-            self.num_features = 960  # MBv3-L
-            self.backbone = torchvision.models.mobilenet_v3_large(torchvision.models.MobileNet_V3_Large_Weights.DEFAULT)
-        self.backbone.classifier = nn.Identity()
-        self.sequence_model = nn.LSTM(self.num_features, 128, 1, batch_first=True)
-        self.linear = nn.Sequential(
-                nn.Dropout(0.5),
-                nn.ReLU(),
-                nn.Linear(128, self.num_classes)
+        self.conv1 = nn.Conv2d(
+            in_channels=3,
+            out_channels=residual_config[0],
+            kernel_size=3,
+            stride=2,
+            padding=1
         )
+        self.bn1 = nn.BatchNorm2d(residual_config[0])
 
-        if pretrained is not None:
-            state_dict = torch.load(pretrained, map_location=self.device)["state_dict"]
-            state_dict = {
-                key: state_dict[key] for key in state_dict.keys() if
-                not ("loss_weight" == key or "linear.2.weight" == key or "linear.2.bias" == key)
-            }
-            self.load_state_dict(state_dict, strict=False)
-            print(f"Loaded weights from {pretrained}")
+        self.residual_blocks = nn.Sequential(*[
+            ResidualBlock(
+                in_channels=residual_config[idx],
+                out_channels=residual_config[idx + 1],
+                stride=2
+            ) for idx in range(len(residual_config) - 1)
+        ])
 
+        avg_pool_size = 2
+        self.avg_pool = nn.AdaptiveAvgPool2d(2)
+        hidden_size = int(avg_pool_size ** 2 * residual_config[-1])
+        self.sequence_model = nn.LSTM(
+            hidden_size, 64, batch_first=True
+        )
+        self.classifier = nn.Linear(64, self.num_classes)
 
         self.metric_config = {
             "acc": (Accuracy, {"task": "multiclass", "num_classes": num_classes, "average": "macro"}),
@@ -135,11 +213,9 @@ class LSTM(L.LightningModule):
         self.summary_writer.writer = self.logger.experiment
         self.summary_writer.add_hparams({
             "lr": self.lr,
-            "backbone_lr": self.backbone_lr,
             "weight_decay": self.weight_decay,
-            "small": self.small,
             "label_smoothing": self.label_smoothing,
-            "pretrained": self.pretrained
+            "residual_config": ", ".join([str(x) for x in self.residual_config])
         })
 
     def on_test_start(self) -> None:
@@ -148,10 +224,15 @@ class LSTM(L.LightningModule):
     def forward(self, x):
         batch_size, time_steps, channels, height, width = x.shape
         x = x.flatten(0, 1)
-        x = self.backbone(x)
-        x = x.unflatten(0, (batch_size, time_steps))
-        x, (hn, cn) = self.sequence_model(x)
-        out = self.linear(x.flatten(0, 1)).unflatten(0, (batch_size, time_steps))
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.residual_blocks(out)
+
+        out = self.avg_pool(out).flatten(1, 3)
+        out = out.unflatten(0, (batch_size, time_steps))
+        out, _ = self.sequence_model(out)
+        out = out.flatten(0, 1)
+        out = self.classifier(out)
+        out = out.unflatten(0, (batch_size, time_steps))
         return out
 
     def training_step(self, batch, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
@@ -250,8 +331,18 @@ class LSTM(L.LightningModule):
 
 
 def main():
-    model = LSTM(14)
-    out = model(torch.rand((2, 5, 3, 160, 160)))
+    model = ResNetLSTM(14)
+
+    def capacity(module):
+        num_param = sum(p.numel() for p in module.parameters() if p.requires_grad)
+
+        return num_param
+
+    # from torchsummary import summary
+    # summary(model, (5, 3, 224, 224), device="cpu")
+
+    inp = torch.rand((2, 5, 3, 224, 224))
+    out = model(inp)
     preds = F.softmax(out, dim=-1).argmax(dim=-1).squeeze(0).detach().numpy()
     print(f"predicted classes: {preds}")
 
