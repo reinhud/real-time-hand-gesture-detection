@@ -249,11 +249,22 @@ def convert_ipnhand(dataset_root: Path, destination_root: Path):
     with open(dataset_root / "Video_TrainList.txt", "r") as f:
         reader = csv.DictReader(f, fieldnames=["video", "length"], delimiter="\t")
         data = [(x["video"], x["length"]) for x in list(reader)]
+        for idx in range(len(data)):
+            vid = data[idx][0]
+            length = len(list((frames_root / vid).glob("*.jpg")))
+            if length != int(data[idx][1]):
+                print(vid)
+            data[idx] = (vid, str(length))
         h5info.create_dataset("train_videos", data=data)
 
     with open(dataset_root / "Video_TestList.txt", "r") as f:
         reader = csv.DictReader(f, fieldnames=["video", "length"], delimiter="\t")
         data = [(x["video"], x["length"]) for x in list(reader)]
+        for idx in range(len(data)):
+            vid = data[idx][0]
+            length = len(list((frames_root / vid).glob("*.jpg")))
+            if length != int(data[idx][1]):
+                print(vid)
         h5info.create_dataset("test_videos", data=data)
 
     # create a list of annotations for each video
