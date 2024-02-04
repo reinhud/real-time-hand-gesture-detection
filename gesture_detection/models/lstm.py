@@ -1,6 +1,8 @@
-from typing import Any, Union
+import time
+from typing import Any, Union, Optional
 
 import lightning as L
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -69,7 +71,8 @@ class LSTM(L.LightningModule):
             loss_weight: list[float] | None = None,
             sample_length: int = 32,
             label_smoothing: float = 0.0,
-            small: bool = True
+            small: bool = True,
+            pretrained: Optional[str] = None
     ):
         super().__init__()
         self.lr = lr
@@ -81,6 +84,7 @@ class LSTM(L.LightningModule):
         self.small = small
         self.num_classes = num_classes
         self.label_smoothing = label_smoothing
+        self.pretrained = pretrained
         # self.save_hyperparameters()
         self.summary_writer = SummaryWriterLogger()
 
@@ -97,6 +101,16 @@ class LSTM(L.LightningModule):
                 nn.ReLU(),
                 nn.Linear(128, self.num_classes)
         )
+
+        if pretrained is not None:
+            state_dict = torch.load(pretrained, map_location=self.device)["state_dict"]
+            state_dict = {
+                key: state_dict[key] for key in state_dict.keys() if
+                not ("loss_weight" == key or "linear.2.weight" == key or "linear.2.bias" == key)
+            }
+            self.load_state_dict(state_dict, strict=False)
+            print(f"Loaded weights from {pretrained}")
+
 
         self.metric_config = {
             "acc": (Accuracy, {"task": "multiclass", "num_classes": num_classes, "average": "macro"}),
@@ -124,7 +138,8 @@ class LSTM(L.LightningModule):
             "backbone_lr": self.backbone_lr,
             "weight_decay": self.weight_decay,
             "small": self.small,
-            "label_smoothing": self.label_smoothing
+            "label_smoothing": self.label_smoothing,
+            "pretrained": self.pretrained
         })
 
     def on_test_start(self) -> None:
