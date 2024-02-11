@@ -85,7 +85,7 @@ class LSTM(L.LightningModule):
         self.num_classes = num_classes
         self.label_smoothing = label_smoothing
         self.pretrained = pretrained
-        # self.save_hyperparameters()
+        self.save_hyperparameters()
         self.summary_writer = SummaryWriterLogger()
 
         if self.small:
@@ -145,13 +145,15 @@ class LSTM(L.LightningModule):
     def on_test_start(self) -> None:
         self.summary_writer.writer = self.logger.experiment
 
-    def forward(self, x):
+    def forward(self, x, hx_init=None, return_hx=False):
         batch_size, time_steps, channels, height, width = x.shape
         x = x.flatten(0, 1)
         x = self.backbone(x)
         x = x.unflatten(0, (batch_size, time_steps))
-        x, (hn, cn) = self.sequence_model(x)
+        x, hx = self.sequence_model(x, hx=hx_init)
         out = self.linear(x.flatten(0, 1)).unflatten(0, (batch_size, time_steps))
+        if return_hx:
+            return out, hx
         return out
 
     def training_step(self, batch, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
