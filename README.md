@@ -39,6 +39,20 @@ poetry install
 
 To interact with the project, you can use the following commands for common usecases:
 
+### Datasets
+
+Download one or all of the following datasets:
+
+- [IPNHand](https://gibranbenitez.github.io/IPN_Hand/)
+- [NVGesture](https://research.nvidia.com/publication/2016-06_online-detection-and-classification-dynamic-hand-gestures-recurrent-3d)
+- [Jester Gesture](https://developer.qualcomm.com/software/ai-datasets/jester)
+
+Extract the files to your file system. Then use the following command to convert the dataset(s) to the HDF5 format (this can take some minutes):
+
+``` shell
+poetry run python gesture_detection.datasets.h5dataset --ipn /path/to/ipnhand --nvg /path/to/nvgesture --jg /path/to/jestergesture --h5 /path/to/hdf5/directory --convert
+```
+
 ### Training
 
 ``` shell
